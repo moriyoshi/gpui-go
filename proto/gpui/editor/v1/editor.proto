@@ -1,0 +1,143 @@
+syntax = "proto3";
+package gpui.editor.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/editor/v1;editorv1";
+
+// Commands run on GPUI's foreground thread. IDs are never reused during a
+// host process. Open/Hello/Quit require editor_id=0; other commands target an ID.
+message Request {
+  uint64 request_id = 1;
+  uint64 editor_id = 2;
+  reserved 16; // Removed demonstration-only SetStatus command.
+  oneof command {
+    GetState get_state = 10;
+    SetText set_text = 11;
+    InsertText insert_text = 12;
+    Undo undo = 13;
+    Redo redo = 14;
+    SetReadOnly set_read_only = 15;
+    Quit quit = 17;
+    Open open = 18;
+    Close close = 19;
+    Focus focus = 20;
+    Hello hello = 21;
+    SetSelection set_selection = 22;
+    OpenEmbedded open_embedded = 23;
+  }
+}
+message Hello { uint32 major = 1; }
+message Capabilities {
+  uint32 major = 1;
+  uint32 max_text_bytes = 2;
+  uint32 max_editors = 3;
+}
+message Open {
+  string title = 1;
+  float width = 2;
+  float height = 3;
+  string text = 4;
+  bool read_only = 5;
+  bool show_gutter = 6;
+  bool soft_wrap = 7;
+  WidthTable width_table = 8;
+}
+// Creates an editor inside the window of a generic view, without showing it.
+// The application places it in a snapshot by its editor ID. Only available when
+// the editor is linked with the generic backend.
+message OpenEmbedded {
+  uint64 view_id = 1;
+  uint32 view_generation = 2;
+  string text = 3;
+  bool read_only = 4;
+  bool show_gutter = 5;
+  bool soft_wrap = 6;
+  WidthTable width_table = 7;
+}
+message GetState {}
+// Authoritative replacement is permitted even in read-only mode.
+message SetText { string text = 1; }
+message InsertText { string text = 1; }
+message Undo {}
+message Redo {}
+message SetReadOnly { bool value = 1; }
+// Zero-based. A line is a buffer line. A column counts visual cells from its
+// start, by the East Asian Width table: a wide or fullwidth character takes
+// two, an ambiguous one follows the editor's width table, a tab reaches its stop, a combining mark takes none, and soft wrapping does
+// not restart the count.
+message Position {
+  uint32 line = 1;
+  uint32 column = 2;
+  // Only read by SetSelection. Reported positions leave it unspecified.
+  Clamp clamp = 3;
+  // Only read by SetSelection. An alternative to column: Unicode code points
+  // from the start of the line. Setting both nonzero is invalid.
+  uint32 character = 4;
+}
+// How positions count East Asian Ambiguous characters. Unspecified counts them
+// all as one column. Wide ambiguous counts all with a width as two. Wide symbols
+// counts symbols, punctuation and numbers as two, and letters as one.
+enum WidthTable {
+  WIDTH_TABLE_UNSPECIFIED = 0;
+  WIDTH_TABLE_WIDE_AMBIGUOUS = 1;
+  WIDTH_TABLE_WIDE_SYMBOLS = 2;
+}
+// Where a position inside a wide character or a tab goes. Unspecified rejects
+// the selection.
+enum Clamp {
+  CLAMP_UNSPECIFIED = 0;
+  CLAMP_BEFORE = 1;
+  CLAMP_AFTER = 2;
+}
+// The start is never after the end. Equal positions are a caret.
+message Selection {
+  Position start = 1;
+  Position end = 2;
+}
+// Replaces all selections with one, scrolling it into view. Also permitted in
+// read-only mode. Positions must be within the buffer and at the start of a character unless
+// clamped. The start must not follow the end after clamping.
+message SetSelection { Selection selection = 1; }
+message Quit {}
+message Close {}
+message Focus {}
+message State {
+  uint64 revision = 1;
+  string text = 2;
+  bool read_only = 3;
+  uint64 editor_id = 4;
+  // The newest selection. Moving it does not change the revision.
+  Selection selection = 5;
+}
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_INVALID_ARGUMENT = 1;
+  ERROR_CODE_NOT_FOUND = 2;
+  ERROR_CODE_READ_ONLY = 3;
+  ERROR_CODE_RESOURCE_EXHAUSTED = 4;
+  ERROR_CODE_CLOSED = 5;
+  ERROR_CODE_INTERNAL = 6;
+  ERROR_CODE_UNSUPPORTED_VERSION = 7;
+}
+message Error { ErrorCode code = 1; string message = 2; }
+message Ack {}
+message Response {
+  uint64 request_id = 1;
+  uint64 editor_id = 2;
+  oneof result {
+    State state = 10;
+    Error error = 11;
+    Capabilities capabilities = 12;
+    Ack ack = 13;
+  }
+}
+message NextEvent {}
+// One consumer per host. Events are ordered but have no replay on cancellation.
+message Event {
+  uint64 sequence = 1;
+  uint64 editor_id = 2;
+  reserved 11; // Removed demonstration-only toolbar action events.
+  oneof kind {
+    State changed = 10;
+    Ack closed = 12;
+    Error error = 13;
+  }
+}

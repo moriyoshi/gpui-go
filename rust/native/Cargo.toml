@@ -1,0 +1,33 @@
+[package]
+name = "gpui-go-native"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[features]
+# Compile Metal shaders through the system GPU driver at application startup.
+# This keeps development builds usable with Apple's command line tools alone.
+# --no-default-features uses precompiled shaders and needs the Metal toolchain.
+default = ["runtime-shaders"]
+runtime-shaders = ["gpui_platform/runtime_shaders"]
+# Explicit opt-in native input instrumentation for the Starlark E2E runner.
+automation = []
+
+[dependencies]
+gpui-go-runtime = { path = "../runtime" }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654", default-features = false }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654", features = ["font-kit", "wayland", "x11"] }
+unicode-segmentation = "=1.13.3"
+
+image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+
+[dev-dependencies]
+gpui = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654", default-features = false, features = ["test-support"] }
+
+# Backports AccessKit PR #835 (KVO-safe SubclassingAdapter drop, released in
+# 0.27.2) to the 0.26 series GPUI uses; see ../vendor/accesskit_macos/GPUI-GO-PATCH.md.
+[patch.crates-io]
+accesskit_macos = { path = "../vendor/accesskit_macos" }

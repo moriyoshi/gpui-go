@@ -1,0 +1,46 @@
+package countergox
+
+import (
+	"fmt"
+	
+	"github.com/doors-dev/gox"
+	"github.com/moriyoshi/gpui-go/reactive"
+	"github.com/moriyoshi/gpui-go/scene"
+	"github.com/moriyoshi/gpui-go/ui"
+	nativegox "github.com/moriyoshi/gpui-go/ui/gox"
+)
+
+elem view(count *reactive.Signal[int], increment ui.Handler) {
+	<div
+		testid="root"
+		style=(&scene.Style{
+			Width: scene.Percent(100),
+			Height: scene.Percent(100),
+			Padding: scene.Padding(32),
+			Gap: scene.Pixels(20),
+			FlexDirection: scene.FlexColumn.Enum(),
+			AlignItems: scene.AlignCenter.Enum(),
+			JustifyContent: scene.JustifyCenter.Enum(),
+			Background: scene.RGB(0x18181b),
+			TextColor: scene.RGB(0xf4f4f5),
+			FontSize: scene.Ptr[float32](20),
+		})>
+		<span style=(&scene.Style{FontSize: scene.Ptr[float32](30)})>GPUI from Go</span>
+		<span testid="count">
+			~(nativegox.Text(func() string {
+				return fmt.Sprintf("Count: %d", count.Get())
+			}))
+		</span>
+		<button
+			testid="increment"
+			label="Increment"
+			onClick=(increment)
+			style=(&scene.Style{
+				Padding: scene.Padding(12),
+				Background: scene.RGB(0x4f46e5),
+				CornerRadius: scene.Ptr[float32](8),
+			})>
+			Increment
+		</button>
+	</div>
+}

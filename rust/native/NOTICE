@@ -1,0 +1,8 @@
+The native text editor in src/input.rs adapts GPUI's input example from:
+https://github.com/zed-industries/zed/blob/e231594b6b8818ea8d668ee2eb73e1fb09300654/crates/gpui/examples/input.rs
+
+GPUI is authored by Nathan Sobo and contributors and distributed under
+Apache License 2.0. A copy of the license is included as LICENSE-APACHE.
+
+This adaptation adds bridge events, versioned Go snapshot synchronization,
+disabled fields, input size limits, and horizontal caret scrolling.

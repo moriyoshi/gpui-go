@@ -1,0 +1,10 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+
+// Resource support is capability-gated. Resource bytes are sent once, never
+// repeated in every view snapshot. Handles remain live until explicitly released;
+// release rejects assets referenced by an installed snapshot.
+enum ResourceKind { RESOURCE_KIND_UNSPECIFIED = 0; RESOURCE_KIND_IMAGE = 1; RESOURCE_KIND_SVG = 2; RESOURCE_KIND_FONT = 3; }
+message Resource { Handle handle = 1; ResourceKind kind = 2; string media_type = 3; bytes data = 4; }

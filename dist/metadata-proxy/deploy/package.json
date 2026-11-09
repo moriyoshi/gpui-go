@@ -1,0 +1,7 @@
+{
+  "name": "gpui-go-metadata-proxy-deploy",
+  "private": true,
+  "devDependencies": {
+    "wrangler": "4.158.0"
+  }
+}

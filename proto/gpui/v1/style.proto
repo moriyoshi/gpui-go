@@ -1,0 +1,52 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+import "gpui/v1/feature.proto";
+
+enum FlexDirection { FLEX_DIRECTION_UNSPECIFIED = 0; FLEX_DIRECTION_ROW = 1; FLEX_DIRECTION_COLUMN = 2; }
+enum Alignment { ALIGNMENT_UNSPECIFIED = 0; ALIGNMENT_START = 1; ALIGNMENT_CENTER = 2; ALIGNMENT_END = 3; ALIGNMENT_STRETCH = 4; }
+enum Justification { JUSTIFICATION_UNSPECIFIED = 0; JUSTIFICATION_START = 1; JUSTIFICATION_CENTER = 2; JUSTIFICATION_END = 3; JUSTIFICATION_SPACE_BETWEEN = 4; }
+enum Overflow { OVERFLOW_UNSPECIFIED = 0; OVERFLOW_VISIBLE = 1; OVERFLOW_HIDDEN = 2; OVERFLOW_SCROLL = 3; }
+enum Cursor { CURSOR_UNSPECIFIED = 0; CURSOR_ARROW = 1; CURSOR_POINTER = 2; }
+enum Position { POSITION_UNSPECIFIED = 0; POSITION_RELATIVE = 1; POSITION_ABSOLUTE = 2; }
+// A complete style snapshot. Absent fields use GPUI defaults; replacing a
+// snapshot clears old properties. This protocol deliberately has no patch API.
+enum Display { DISPLAY_UNSPECIFIED = 0; DISPLAY_FLEX = 1; DISPLAY_GRID = 2; DISPLAY_NONE = 3; }
+enum TextAlignment { TEXT_ALIGNMENT_UNSPECIFIED = 0; TEXT_ALIGNMENT_LEFT = 1; TEXT_ALIGNMENT_CENTER = 2; TEXT_ALIGNMENT_RIGHT = 3; }
+message Style {
+  Length width = 1;
+  Length height = 2;
+  Length min_width = 3;
+  Length min_height = 4;
+  Edges padding = 5;
+  Edges margin = 6;
+  Length gap = 7;
+  optional FlexDirection flex_direction = 8;
+  optional Alignment align_items = 9;
+  optional Justification justify_content = 10;
+  Color background = 11;
+  Color text_color = 12;
+  optional float font_size = 13; // Logical pixels.
+  optional float border_width = 14;
+  Color border_color = 15;
+  optional float corner_radius = 16;
+  optional float flex_grow = 17;
+  optional Overflow overflow_x = 18;
+  optional Overflow overflow_y = 19;
+  optional Cursor cursor = 20;
+  optional uint32 font_weight = 21; // In [100, 900].
+  optional float flex_shrink = 22;
+  optional Position position = 23;
+  Edges inset = 24;
+  Length max_width = 25;
+  Length max_height = 26;
+  optional Display display = 27;
+  optional uint32 grid_columns = 28;
+  optional bool flex_wrap = 29;
+  optional float opacity = 30;
+  optional string font_family = 31;
+  optional TextAlignment text_align = 32;
+  repeated Shadow shadows = 33;
+  optional bool italic = 34;
+}

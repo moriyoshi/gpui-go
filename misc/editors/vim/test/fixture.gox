@@ -1,0 +1,61 @@
+package highlight
+
+import "github.com/doors-dev/gox"
+
+// Ordinary Go stays Go.
+func ordinary(n int) bool { return n < 10 }
+var comparison = 1 < 2
+var quoted = "<div> ~(false) ~~"
+var raw = `<span>text</span>`
+
+type User struct { Name string }
+
+elem (u User) Card(show bool, users []User) {
+    ~~
+    count := len(users)
+    _ = "~~ ) } > </div>"
+    // ~~ is inside a Go comment.
+    ~~
+    if for return 123 "literal text"
+    <div data-id="card > still a string" tabindex=0 (gox.ModifyFunc(nil))>
+        <div><div>nested</div>outer text</div>
+        <custom-tag value=(func() string {
+            // ) } > and </custom-tag> stay in this comment.
+            return ") } > </custom-tag>"
+        }())/>
+        <input value=(u.Name) disabled=(count > 2)/>
+        <br>after void
+        <input title=`raw > attribute` data-code=0xFF data-user=User{Name: "Ada"}>
+        ~(len([]string{")", "}"})) after expression
+        ~(if show {
+            if for return 456
+            <span>~(u.Name)</span>
+        } else if count > 0 {
+            <span>fallback</span>
+        } else {
+            no users
+        })
+        ~(for _, user := range users {
+            <span>~(user.Name)</span>
+        })
+        ~({ if !show { return nil }; return <span>computed</span> })
+        ~>(gox.ProxyFunc(func(c gox.Cursor, e gox.Elem) error { return e(c) })) <span>proxied</span>
+        ~"literal ) }" ~42 ~User{Name: "Ada"} ~`raw ) }`
+        ~// TODO template comment with <div> ~(bad)
+        ~/* block comment
+            <div> ~(bad)
+        */
+        <!-- emitted comment with ~(bad) -->
+        <:><svg>~(raw) ~~ if { }</svg></:>
+        <>fragment <span>child</span></>
+    </div>
+    text after root
+}
+
+var inline = <div><div>inline nested</div>inline outer</div>
+var fragment = <>hello ~(42)</>
+var anonymous = elem() { <span>anonymous</span> }
+elem Signature(arg interface { Name() string }) {
+    literal signature body
+}
+func after() int { return 123 }

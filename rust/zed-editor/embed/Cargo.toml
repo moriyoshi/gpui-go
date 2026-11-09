@@ -1,0 +1,15 @@
+[package]
+name = "gpui-go-zed-editor-embed"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "gpui_go_zed_editor_embed"
+crate-type = ["staticlib"]
+
+[dependencies]
+gpui-go-native = { path = "../../native" }
+gpui-go-zed-editor-host = { path = "../host" }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654", default-features = false }
