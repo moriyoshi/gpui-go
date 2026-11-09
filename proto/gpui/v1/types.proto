@@ -1,0 +1,25 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+
+// References are scoped to the session negotiated by Hello. Zero is invalid.
+message Handle {
+  uint64 id = 1;
+  uint32 generation = 2;
+}
+message Point { float x = 1; float y = 2; }
+message Size { float width = 1; float height = 2; }
+message Bounds { Point origin = 1; Size size = 2; }
+// Pixels are logical display pixels. Percent is in [0, 100].
+message Length {
+  oneof value {
+    float pixels = 1;
+    float percent = 2;
+    float rems = 3;
+    bool auto = 4; // Must be true when selected.
+  }
+}
+// Non-premultiplied sRGB channels, each in [0, 1].
+message Color { float red = 1; float green = 2; float blue = 3; float alpha = 4; }
+message Edges { Length top = 1; Length right = 2; Length bottom = 3; Length left = 4; }
+message Modifiers { bool control = 1; bool alt = 2; bool shift = 3; bool platform = 4; }

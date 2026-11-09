@@ -1,0 +1,48 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+import "gpui/v1/action.proto";
+import "gpui/v1/feature.proto";
+
+enum MouseButton { MOUSE_BUTTON_UNSPECIFIED = 0; MOUSE_BUTTON_LEFT = 1; MOUSE_BUTTON_RIGHT = 2; MOUSE_BUTTON_MIDDLE = 3; }
+message Click { Point position = 1; MouseButton button = 2; Modifiers modifiers = 3; uint32 click_count = 4; }
+message KeyEvent { string key = 1; Modifiers modifiers = 2; bool held = 3; }
+message PointerEvent { Point position = 1; MouseButton button = 2; Modifiers modifiers = 3; Point delta = 4; bool dragging = 5; }
+message FocusChanged { bool focused = 1; }
+message FileDrop { repeated string paths = 1; }
+message WindowClosed {}
+message ViewUpdated {}
+message TextChanged {
+  string value = 1;
+  uint64 epoch = 2;
+  uint64 edit_revision = 3;
+  bool composing = 4;
+}
+message Event {
+  uint64 sequence = 1;
+  Handle window = 2;
+  Handle view = 3;
+  uint64 revision = 4;
+  uint64 element_id = 5;
+  uint64 handler_id = 6;
+  oneof kind {
+    Click click = 10;
+    KeyEvent key_down = 11;
+    Action action = 12;
+    WindowClosed window_closed = 13;
+    ViewUpdated view_updated = 14;
+    TextChanged text_changed = 15;
+    KeyEvent key_up = 16;
+    PointerEvent mouse_down = 17;
+    PointerEvent mouse_up = 18;
+    PointerEvent mouse_move = 19;
+    PointerEvent scroll = 20;
+    FocusChanged focus_changed = 21;
+    FileDrop file_drop = 22;
+    ModelState model_changed = 23;
+    PathResult path_result = 24;
+    DragData data_drop = 25;
+  }
+}
+message EventBatch { repeated Event events = 1; }

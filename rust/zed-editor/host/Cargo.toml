@@ -1,0 +1,27 @@
+[package]
+name = "gpui-go-zed-editor-host"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "gpui_go_zed_editor_host"
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+gpui-go-zed-editor = { path = ".." }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654", default-features = false }
+sable = { git = "https://github.com/moriyoshi/sable", rev = "0c6fe56eb09937dee354532d14c265a99534e8a2", default-features = false }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654", features = ["font-kit", "runtime_shaders"] }
+settings = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654" }
+theme = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654" }
+theme_settings = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654" }
+release_channel = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654" }
+util = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654", features = ["debug-embed"] }
+prost = "=0.12.6"
+tokio = { version = "1", features = ["sync"] }
+async-channel = "=2.5.0"
+
+[build-dependencies]
+prost-build = "=0.12.6"

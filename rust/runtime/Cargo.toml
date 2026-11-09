@@ -1,0 +1,16 @@
+[package]
+name = "gpui-go-runtime"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[lib]
+name = "gpui_go"
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+gpui-go-core = { path = "../core" }
+sable = { git = "https://github.com/moriyoshi/sable", rev = "0c6fe56eb09937dee354532d14c265a99534e8a2", default-features = false }
+prost = "=0.12.6"
+async-channel = "=2.5.0"
+tokio = { version = "1", features = ["sync", "rt", "macros", "time"] }

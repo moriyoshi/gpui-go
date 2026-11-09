@@ -1,0 +1,11 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+import "gpui/v1/entity.proto";
+
+message WindowOptions { string title = 1; Size size = 2; }
+message OpenWindow { WindowOptions options = 1; ViewSnapshot initial_view = 2; }
+// A window owns its root view. Closing it releases both references.
+message WindowOpened { Handle window = 1; Handle view = 2; uint64 revision = 3; }
+message CloseWindow { Handle window = 1; }

@@ -1,0 +1,13 @@
+page = open_page("counter-gox")
+count = page.get_by_test_id("count")
+expect(count).to_have_text("Count: 0")
+identity = count.inspect()["element_id"]
+button = page.get_by_role("button", name = "Increment", exact = True)
+button.click()
+expect(count).to_have_text("Count: 1")
+assert_eq(page.state()["count"], 1)
+button.press("Enter")
+expect(count).to_have_text("Count: 2")
+assert_eq(page.state()["count"], 2)
+assert_eq(count.inspect()["element_id"], identity, "signal updates preserve the generated count node")
+page.close()

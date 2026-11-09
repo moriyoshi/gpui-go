@@ -1,0 +1,16 @@
+# Reserve and restore the previous clipboard text through harness cleanup.
+# Rich clipboard formats are outside this text-only test contract.
+clipboard("before-e2e")
+app = open_app()
+click(app, "name")
+type_text(app, "Copy 日本語🙂")
+key(app, "cmd-a cmd-c")
+assert_eq(clipboard(), "Copy 日本語🙂")
+key(app, "cmd-x")
+assert_eq(state(app)["name"], "")
+key(app, "cmd-v")
+assert_eq(state(app)["name"], "Copy 日本語🙂")
+clipboard("line 1\nline 2")
+key(app, "cmd-a cmd-v")
+assert_eq(state(app)["name"], "line 1 line 2", "pasted line breaks normalize to spaces")
+close_app(app)

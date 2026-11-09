@@ -1,0 +1,55 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+import "gpui/v1/style.proto";
+import "gpui/v1/feature.proto";
+import "gpui/v1/action.proto";
+
+message Container { repeated Element children = 1; }
+message Text { string content = 1; }
+message Image { Handle resource = 1; }
+// Uniform-height rows are serialized once; GPUI renders only the visible range.
+// A native view owned by an optional host extension, identified by that
+// extension. Requires the embedded-views capability.
+message Embedded { uint64 instance = 1; }
+
+message UniformList { repeated Element items = 1; float row_height = 2; }
+// Single-line editable text. Rust owns caret, selection, and IME composition.
+// Go echoes edit_revision from TextChanged. A larger epoch explicitly resets
+// the value; older epochs/acknowledgements never overwrite newer native edits.
+message TextInput {
+  string value = 1;
+  string placeholder = 2;
+  EventBinding on_change = 3;
+  uint64 epoch = 4;
+  uint64 edit_revision = 5;
+  bool disabled = 6;
+  // Draws one bullet per grapheme and withholds the text from the clipboard,
+  // text services and accessibility. Go still receives the real value.
+  bool masked = 7;
+}
+// Dispatch policies execute synchronously in Rust. A later Go callback cannot
+// change propagation for an event that has already been dispatched.
+message EventBinding { uint64 handler_id = 1; bool stop_propagation = 2; }
+message Element {
+  uint64 id = 1; // Nonzero and unique within a view; stable across revisions.
+  Style style = 2;
+  EventBinding on_click = 3;
+  optional string accessibility_label = 4;
+  // A partial refinement over style while hovered, not a second snapshot.
+  Style hover_style = 5;
+  Interaction interaction = 6;
+  Accessibility accessibility = 7;
+  repeated KeyBinding key_bindings = 8;
+  OpacityAnimation animation = 9;
+  oneof kind {
+    Container container = 10;
+    Text text = 11;
+    Image image = 12;
+    TextInput text_input = 13;
+    Drawing drawing = 14;
+    UniformList uniform_list = 15;
+    Embedded embedded = 16;
+  }
+}

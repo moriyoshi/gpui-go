@@ -1,0 +1,36 @@
+[package]
+name = "gpui-go-zed-editor"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+name = "gpui_go_zed_editor"
+crate-type = ["rlib"]
+
+[workspace]
+members = ["host", "embed"]
+resolver = "3"
+
+[dependencies]
+language = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654" }
+gpui = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654", default-features = false }
+editor = { git = "https://github.com/zed-industries/zed", rev = "e231594b6b8818ea8d668ee2eb73e1fb09300654" }
+unicode-segmentation = "1"
+unicode-width = "0.2"
+# Match the upstream lockfile: later 0.4 releases changed the TLS builder API.
+yawc = { version = "=0.4.2", default-features = false }
+rust-embed = { version = "=8.11.0", default-features = false }
+rust-embed-impl = "=8.11.0"
+rust-embed-utils = "=8.11.0"
+merman-core = { version = "=0.8.0-alpha.5", default-features = false }
+merman-render = { version = "=0.8.0-alpha.5", default-features = false }
+# Zed requires these forks even when consumed outside its workspace.
+[patch.crates-io]
+async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
+async-task = { git = "https://github.com/zed-industries/async-task.git", rev = "015845a19fc31752c02367567d3b8900a406f9da" }
+tree-sitter-language = { git = "https://github.com/tree-sitter/tree-sitter", rev = "803c6ebaac27d69e1808b45058482e868d073ceb" }
+
+[profile.dev]
+debug = 0

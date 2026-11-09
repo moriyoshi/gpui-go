@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "abi": "c",
+  "functions": [
+    { "name": "GPUIInit", "symbol": "gpui_go_init", "params": [], "result": "int32" },
+    { "name": "GPUIRunHeadless", "symbol": "gpui_go_run_headless", "params": [], "result": "int32" },
+    { "name": "GPUIRunNative", "symbol": "gpui_go_run_native", "params": [], "result": "int32" },
+    { "name": "GPUIStop", "symbol": "gpui_go_stop", "params": [] },
+    { "name": "GPUIHeadlessClick", "symbol": "gpui_go_headless_click", "params": ["uint64", "uint32", "uint64", "uint64"], "result": "int32" },
+    { "name": "GPUIHeadlessTextChange", "symbol": "gpui_go_headless_text_change", "params": ["uint64", "uint32", "uint64", "uint64", "uint64", "pointer", "uintptr"], "result": "int32" },
+    { "name": "SableRuntimeNew", "symbol": "sable_runtime_new", "params": [], "result": "pointer" },
+    { "name": "SableCompletionFD", "symbol": "sable_completion_efd", "params": ["pointer"], "result": "int32" },
+    { "name": "SableCallContext", "symbol": "sable_call_ctx", "params": ["pointer", "uint32", "pointer", "uintptr", "uint64"] },
+    { "name": "SableCallCancel", "symbol": "sable_call_cancel", "params": ["uint64"] },
+    { "name": "SableCallResult", "symbol": "sable_call_result", "params": ["uint64", "pointer", "pointer", "pointer"] },
+    { "name": "SableCallFree", "symbol": "sable_call_free", "params": ["uint64"] },
+    { "name": "SableNextCompletion", "symbol": "sable_next_completion", "params": ["pointer", "pointer", "pointer"], "result": "int32" },
+    { "name": "SableRuntimeShutdown", "symbol": "sable_runtime_shutdown", "params": ["pointer"] },
+    { "name": "SableRuntimeFree", "symbol": "sable_runtime_free", "params": ["pointer"] }
+  ]
+}

@@ -1,0 +1,153 @@
+package main
+
+import (
+	"fmt"
+	
+	"github.com/doors-dev/gox"
+	"github.com/moriyoshi/gpui-go/reactive"
+	"github.com/moriyoshi/gpui-go/scene"
+	"github.com/moriyoshi/gpui-go/ui"
+	nativegox "github.com/moriyoshi/gpui-go/ui/gox"
+)
+
+var columnStyle = &scene.Style{FlexDirection: scene.FlexColumn.Enum(), Gap: scene.Pixels(10)}
+var rowStyle = &scene.Style{FlexDirection: scene.FlexRow.Enum(), Gap: scene.Pixels(10), AlignItems: scene.AlignCenter.Enum()}
+var inputStyle = &scene.Style{Width: scene.Pixels(320), Height: scene.Pixels(40), Padding: scene.Padding(8), Background: scene.RGB(0x27272a), CornerRadius: scene.Ptr[float32](6)}
+var cardStyle = &scene.Style{Width: scene.Pixels(260), Padding: scene.Padding(14), Gap: scene.Pixels(6), FlexDirection: scene.FlexColumn.Enum(), Background: scene.RGB(0x27272a), CornerRadius: scene.Ptr[float32](8)}
+var titleStyle = &scene.Style{FontSize: scene.Ptr[float32](18), FontWeight: scene.Ptr[uint32](600)}
+
+type Person struct {
+	Name string
+	Admin bool
+}
+
+type Task struct {
+	ID int
+	Title string
+}
+
+elem Badge(text string, color uint32) {
+	<span
+		style=(&scene.Style{
+			Padding: scene.Padding(6),
+			Background: scene.RGB(color),
+			CornerRadius: scene.Ptr[float32](6),
+		})>
+		~(text)
+	</span>
+}
+
+elem Tags() {
+	<div style=(rowStyle)>
+		~(Badge("Stable", 0x0d9488))
+		~(Badge("Beta", 0xb45309))
+		~(Badge("Deprecated", 0xbe123c))
+	</div>
+}
+
+elem Card(title string, body gox.Elem) {
+	<div style=(cardStyle)>
+		<span style=(titleStyle)>~(title)</span>
+		~(body)
+	</div>
+}
+
+elem Profile() {
+	~(Card("Ada Lovelace", <>
+		<span>Analyst</span>
+		<span>London</span>
+	</>))
+}
+
+elem Roster(people []Person) {
+	<div style=(columnStyle)>
+		~(for _, person := range people {
+			<div style=(rowStyle)>
+				<span>~(person.Name)</span>
+				~(if person.Admin {
+					~(Badge("Admin", 0x4f46e5))
+				})
+			</div>
+		})
+	</div>
+}
+
+elem TextKinds(count *reactive.Signal[int]) {
+	<div style=(columnStyle)>
+		<span>~(fmt.Sprintf("Formatted once: %d", count.Get()))</span>
+		<span>
+			~(nativegox.Text(func() string {
+				return fmt.Sprintf("Bound to the signal: %d", count.Get())
+			}))
+		</span>
+	</div>
+}
+
+elem MixedText() {
+	<div style=(columnStyle)>
+		<span>Hello, ~"Ada"!</span>
+		<span>~"Hello, Ada!"</span>
+	</div>
+}
+
+elem NameForm(name *reactive.Signal[string], locked *reactive.Signal[bool]) {
+	<div style=(columnStyle)>
+		<input
+			testid="name"
+			label="Name"
+			value=(name)
+			placeholder="Your name"
+			disabled=(locked.Get)
+			style=(inputStyle)/>
+		<span>
+			~(nativegox.Text(func() string {
+				return "Hello, " + name.Get()
+			}))
+		</span>
+	</div>
+}
+
+elem Switch(on *reactive.Signal[bool], flip ui.Handler) {
+	<button
+		label="Notifications"
+		role=(scene.RoleCheckbox)
+		checked=(on.Get)
+		onClick=(flip)
+		style=(func() *scene.Style {
+			background := scene.RGB(0x3f3f46)
+			if on.Get() {
+				background = scene.RGB(0x0d9488)
+			}
+			return &scene.Style{
+				Padding: scene.Padding(12),
+				Background: background,
+				CornerRadius: scene.Ptr[float32](8),
+			}
+		})>
+		~(nativegox.Text(func() string {
+			if on.Get() {
+				return "Notifications on"
+			}
+			return "Notifications off"
+		}))
+	</button>
+}
+
+elem Board(details, rows *ui.Node) {
+	<div style=(columnStyle)>
+		~(details)
+		~(rows)
+	</div>
+}
+
+elem Details() {
+	~(Badge("Details are open", 0x0d9488))
+}
+
+elem TaskRow(task *reactive.Signal[Task], index *reactive.Signal[int]) {
+	<span>
+		~(nativegox.Text(func() string {
+			return fmt.Sprintf("%d. %s", index.Get() + 1, task.Get().Title)
+		}))
+	</span>
+}

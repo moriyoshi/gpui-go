@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "modulePrefix": "gpui-go.dev",
+  "targets": [
+    { "go": "darwin/arm64", "rust": "aarch64-apple-darwin", "runner": "macos-15", "library": "a" },
+    { "go": "darwin/amd64", "rust": "x86_64-apple-darwin", "runner": "macos-15-intel", "library": "a" },
+    { "go": "linux/amd64", "rust": "x86_64-unknown-linux-gnu", "runner": "ubuntu-24.04", "library": "a" },
+    { "go": "linux/arm64", "rust": "aarch64-unknown-linux-gnu", "runner": "ubuntu-24.04-arm", "library": "a" },
+    { "go": "windows/amd64", "rust": "x86_64-pc-windows-gnu", "runner": "windows-2025", "library": "lib" },
+    { "go": "windows/arm64", "rust": "aarch64-pc-windows-gnullvm", "runner": "windows-11-arm", "library": "lib" }
+  ]
+}

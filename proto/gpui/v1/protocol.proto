@@ -1,0 +1,52 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/app.proto";
+import "gpui/v1/automation.proto";
+import "gpui/v1/feature.proto";
+import "gpui/v1/window.proto";
+import "gpui/v1/entity.proto";
+import "gpui/v1/event.proto";
+
+// Requests are not automatically retried or deduplicated. Cancellation is
+// best-effort: cancellation after commitment does not roll back UI effects.
+message Request {
+  uint64 request_id = 1;
+  uint64 session_id = 2; // Zero only for Hello.
+  oneof body {
+    Hello hello = 10;
+    OpenWindow open_window = 11;
+    CommitView commit_view = 12;
+    CloseWindow close_window = 13;
+    Quit quit = 14;
+    NextEvents next_events = 15;
+    Command command = 16;
+    AutomationRequest automation = 17;
+  }
+}
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_INVALID_ARGUMENT = 1;
+  ERROR_CODE_UNSUPPORTED = 2;
+  ERROR_CODE_STALE_HANDLE = 3;
+  ERROR_CODE_STALE_REVISION = 4;
+  ERROR_CODE_WRONG_SESSION = 5;
+  ERROR_CODE_CLOSED = 6;
+  ERROR_CODE_BACKPRESSURE = 7;
+  ERROR_CODE_INTERNAL = 8;
+}
+message ProtocolError { ErrorCode code = 1; string message = 2; }
+message Ack {}
+message Response {
+  uint64 request_id = 1;
+  oneof body {
+    Capabilities capabilities = 10;
+    WindowOpened window_opened = 11;
+    ViewCommitted view_committed = 12;
+    Ack ack = 13;
+    EventBatch events = 14;
+    ProtocolError error = 15;
+    CommandResult result = 16;
+    AutomationResult automation = 17;
+  }
+}

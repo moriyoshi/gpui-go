@@ -1,0 +1,108 @@
+package reactiveapp
+
+import (
+	"context"
+	"fmt"
+	
+	"github.com/doors-dev/gox"
+	clientlib "github.com/moriyoshi/gpui-go/client"
+	"github.com/moriyoshi/gpui-go/reactive"
+	"github.com/moriyoshi/gpui-go/scene"
+	"github.com/moriyoshi/gpui-go/ui"
+	nativegox "github.com/moriyoshi/gpui-go/ui/gox"
+)
+
+elem (a *App) button(id, label, operation string) {
+	<button
+		testid=(id)
+		label=(label)
+		style=(&scene.Style{Padding: scene.Padding(8), Background: scene.RGB(0x334155), Height: scene.Pixels(36)})
+		onClick=(ui.Handler(func(ctx context.Context, _ *clientlib.Event) error {
+			return a.Update(ctx, operation, "")
+		}))>
+		~(label)
+	</button>
+}
+
+elem (a *App) template(rows, details *ui.Node) {
+	~~
+	a.builds++
+	~~
+	<div
+		testid="root"
+		style=(&scene.Style{
+			Width: scene.Percent(100),
+			Height: scene.Percent(100),
+			FlexDirection: scene.FlexColumn.Enum(),
+			Padding: scene.Padding(24),
+			Gap: scene.Pixels(10),
+			Background: scene.RGB(0x0f172a),
+			TextColor: scene.RGB(0xe2e8f0),
+			FontSize: scene.Ptr[float32](15),
+		})>
+		<div>Fine-grained reactive GPUI graph</div>
+		<span testid="counter">
+			~(nativegox.Text(func() string {
+				a.countRuns++
+				return fmt.Sprintf("Count: %d", a.count.Get())
+			}))
+		</span>
+		<span>
+			~(nativegox.Text(func() string {
+				_ = a.count.Get()
+				return fmt.Sprintf("Counter binding executions: %d; template builds: %d", a.countRuns, a.builds)
+			}))
+		</span>
+		<div style=(&scene.Style{Gap: scene.Pixels(10)})>
+			~(a.button("increment", "Increment", "increment"))
+			~(a.button("batch", "Batch +2", "batch"))
+		</div>
+		<input
+			testid="name"
+			label="Name"
+			value=(a.name)
+			placeholder="Your name"
+			style=(&scene.Style{Width: scene.Pixels(400), Height: scene.Pixels(42), Padding: scene.Padding(8), Background: scene.RGB(0x1e293b)})/>
+		<span testid="greeting">
+			~(nativegox.Text(func() string {
+				return "Hello, " + a.name.Get()
+			}))
+		</span>
+		~(a.button("toggle", "Toggle details", "toggle"))
+		~(details)
+		<div style=(&scene.Style{Gap: scene.Pixels(10)})>
+			~(a.button("reverse", "Reverse rows", "reverse"))
+			~(a.button("add", "Add row", "add"))
+			~(a.button("remove", "Remove first row", "remove"))
+		</div>
+		~(rows)
+	</div>
+}
+
+elem rowTemplate(data *reactive.Signal[*item], index *reactive.Signal[int]) {
+	~~
+	value := data.Peek()
+	~~
+	<div style=(&scene.Style{FlexDirection: scene.FlexRow.Enum(), Gap: scene.Pixels(14), Height: scene.Pixels(40)})>
+		<input
+			testid=(fmt.Sprintf("item-%d", value.ID))
+			label=(fmt.Sprintf("Item %d", value.ID))
+			value=(value.Title)
+			placeholder="Item title"
+			style=(&scene.Style{Width: scene.Pixels(250), Height: scene.Pixels(38), Padding: scene.Padding(6), Background: scene.RGB(0x1e293b)})/>
+		<span>
+			~(nativegox.Text(func() string {
+				return fmt.Sprintf("Row %d: %s", index.Get() + 1, data.Get().Title.Get())
+			}))
+		</span>
+	</div>
+}
+
+elem (a *App) detailsTemplate(parity *reactive.Memo[string]) {
+	<span testid="details">
+		~(nativegox.Text(func() string {
+			a.detailsRuns++
+			return "Details: " + parity.Get()
+		}))
+	</span>
+}

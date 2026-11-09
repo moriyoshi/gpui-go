@@ -1,0 +1,99 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+import "gpui/v1/action.proto";
+import "gpui/v1/resource.proto";
+
+message DragData { string kind = 1; bytes payload = 2; string preview = 3; }
+message Interaction {
+  bool focusable = 1;
+  int32 tab_index = 2;
+  string key_context = 3;
+  uint64 key_down = 4;
+  uint64 key_up = 5;
+  uint64 mouse_down = 6;
+  uint64 mouse_up = 7;
+  uint64 mouse_move = 8;
+  uint64 scroll = 9;
+  uint64 focus_changed = 10;
+  uint64 file_drop = 11;
+  bool stop_propagation = 12;
+  DragData drag = 13;
+  uint64 data_drop = 14;
+  string accept_drop_kind = 15;
+}
+enum AccessibleRole {
+  ACCESSIBLE_ROLE_UNSPECIFIED = 0;
+  ACCESSIBLE_ROLE_GENERIC = 1;
+  ACCESSIBLE_ROLE_BUTTON = 2;
+  ACCESSIBLE_ROLE_CHECKBOX = 3;
+  ACCESSIBLE_ROLE_TEXT_INPUT = 4;
+  ACCESSIBLE_ROLE_TEXT = 5;
+  ACCESSIBLE_ROLE_LIST = 6;
+  ACCESSIBLE_ROLE_LIST_ITEM = 7;
+  ACCESSIBLE_ROLE_LINK = 8;
+  ACCESSIBLE_ROLE_IMAGE = 9;
+  ACCESSIBLE_ROLE_SLIDER = 10;
+  ACCESSIBLE_ROLE_DIALOG = 11;
+}
+message Accessibility {
+  AccessibleRole role = 1;
+  string description = 2;
+  optional bool selected = 3;
+  optional bool expanded = 4;
+  optional bool checked = 5;
+  reserved 6;
+  optional string value = 7;
+}
+message OpacityAnimation { uint32 duration_ms = 1; float from = 2; float to = 3; bool repeat = 4; uint64 generation = 5; }
+message Shadow { Color color = 1; Point offset = 2; float blur = 3; float spread = 4; }
+message DrawRect { Bounds bounds = 1; Color fill = 2; Color border = 3; float border_width = 4; float radius = 5; }
+enum PathVerb { PATH_VERB_UNSPECIFIED = 0; PATH_VERB_MOVE = 1; PATH_VERB_LINE = 2; PATH_VERB_QUADRATIC = 3; PATH_VERB_CUBIC = 4; PATH_VERB_CLOSE = 5; }
+message PathStep { PathVerb verb = 1; Point point = 2; Point control1 = 3; Point control2 = 4; }
+message DrawPath { repeated PathStep steps = 1; Color color = 2; float stroke_width = 3; }
+message DrawCommand { oneof kind { DrawRect rect = 1; DrawPath path = 2; } }
+message Drawing { repeated DrawCommand commands = 1; }
+message UploadResource { ResourceKind kind = 1; string media_type = 2; bytes data = 3; }
+message ReleaseResource { Handle resource = 1; }
+message DispatchAction { FocusTarget target = 1; Action action = 2; }
+message ScrollTo { FocusTarget target = 1; uint32 item = 2; }
+enum WindowOperation { WINDOW_OPERATION_UNSPECIFIED = 0; WINDOW_OPERATION_ACTIVATE = 1; WINDOW_OPERATION_MINIMIZE = 2; WINDOW_OPERATION_ZOOM = 3; WINDOW_OPERATION_FULLSCREEN = 4; WINDOW_OPERATION_SET_TITLE = 5; WINDOW_OPERATION_RESIZE = 6; }
+message WindowCommand { Handle window = 1; WindowOperation operation = 2; string title = 3; Size size = 4; }
+message ClipboardRead {}
+message ClipboardWrite { string text = 1; }
+message OpenUrl { string url = 1; }
+message ModelState { Handle entity = 1; uint64 revision = 2; bytes value = 3; }
+message CreateModel { bytes value = 1; }
+message UpdateModel { Handle entity = 1; uint64 expected_revision = 2; bytes value = 3; }
+message ModelTarget { Handle entity = 1; }
+message ObserveModel { Handle entity = 1; uint64 handler_id = 2; }
+message MenuItem { string label = 1; FocusTarget target = 2; Action action = 3; bool separator = 4; bool checked = 5; bool disabled = 6; repeated MenuItem children = 7; }
+message Menu { string label = 1; repeated MenuItem items = 2; }
+message SetMenus { repeated Menu menus = 1; }
+message PathPrompt { bool files = 1; bool directories = 2; bool multiple = 3; string prompt = 4; uint64 handler_id = 5; }
+message SavePathPrompt { string directory = 1; string suggested_name = 2; uint64 handler_id = 3; }
+message PathResult { uint64 operation_id = 1; repeated string paths = 2; bool cancelled = 3; string error = 4; }
+message Command {
+  oneof kind {
+    UploadResource upload_resource = 1;
+    ReleaseResource release_resource = 2;
+    FocusTarget focus = 3;
+    DispatchAction dispatch_action = 4;
+    ScrollTo scroll_to = 5;
+    WindowCommand window = 6;
+    ClipboardRead clipboard_read = 7;
+    ClipboardWrite clipboard_write = 8;
+    OpenUrl open_url = 9;
+    CreateModel create_model = 10;
+    UpdateModel update_model = 11;
+    ModelTarget read_model = 12;
+    ModelTarget release_model = 13;
+    ObserveModel observe_model = 14;
+    ObserveModel unobserve_model = 15;
+    SetMenus set_menus = 16;
+    PathPrompt prompt_paths = 17;
+    SavePathPrompt prompt_save_path = 18;
+  }
+}
+message CommandResult { Handle resource = 1; optional string text = 2; ModelState model = 3; uint64 operation_id = 4; }

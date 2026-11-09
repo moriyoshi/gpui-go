@@ -1,0 +1,17 @@
+# Protocol and ownership
+
+Go owns application state; Rust owns GPUI entities and executes mutations on the foreground thread. Rendering never synchronously calls Go. The platform loop is a long-lived ordinary cgo call on the startup thread.
+
+The generic contract uses session-owned generational handles, increasing view revisions, and validated complete snapshots. Events remain available until acknowledged by a later pull. InputState epochs and native edit revisions prevent stale Go echoes from replacing newer typing/composition. Generic fields are single-line.
+
+Protocol minor 3 adds bounded assets, drawing, uniform lists, interaction/actions/focus/accessibility, styles/opacity animation, observable models, and backend-specific platform services. Native models contain opaque bytes and compare-and-swap revisions; Go observers explicitly decide view changes. Installed image references prevent resource release; fonts remain resident until exit. Native keymaps use private view/element scopes and retain pending chords through snapshots with unchanged bindings. Native menu actions resolve current logical bindings. Path prompts complete asynchronously through the generic event queue. Headless execution advertises no OS services.
+
+The opt-in native E2E protocol has its own version 1 and uses the same protobuf/Sable/session boundary. It requires Rust `automation` and Go `gpui_e2e`, and ordinary backends reject it. Inspect barriers expose published event watermarks; the target drains callbacks and their commits before assertions. Pointer/key dispatch can draw, so do not hold a mutable root-view borrow across it. Explicit tracked focus handles need their own tab flags; relying on Div flags alone does not configure them. Let GPUI's default focus handler prevent ancestor focus stealing, and prevent default during disabled input's capture phase.
+
+The public `uitest` package owns Page/Locator/expect, target contracts, lifecycle and workers without importing the client, native host or Starlark. `uitest/gpui` owns native driving and application factories; `uitest/starlark` evaluates/converts script values. Native `test-locators-v1` queries current snapshot role/name/text/test-ID metadata and can reveal virtual rows. Locators are strict and re-resolve before actions. Readiness checks geometry and enabled input state; assertions poll safe reads, while committed or uncertain mutations are never retried. Role queries are bridge metadata queries, not an OS accessibility-tree claim. Animation stability/obstruction and browser/CSS semantics are outside the current contract.
+
+The editor contract uses monotonically allocated IDs with independent native buffers. Its events have no acknowledgement/replay guarantee. Do not transfer guarantees between contracts merely because both use protobuf/Sable.
+
+A canceled command may have committed. Shutdown must release pending requests/event pulls and wait for transport activity before freeing Sable. The generic and editor Run entry points each own the global runtime; do not run both in one process.
+
+Sources: [architecture](../../../ARCHITECTURE.md), [generic client](../../../client/client.go), [input](../../../scene/input.go), [editor client](../../../editor/editor.go), [protocols](../../../proto/gpui/).

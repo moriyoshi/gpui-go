@@ -1,0 +1,17 @@
+.concept-diagram { margin: 24px 0 8px; overflow-x: auto; }
+.concept-diagram svg { display: block; width: 100%; min-width: 560px; height: auto; }
+.concept-diagram text { font-family: var(--vp-font-family-base); font-size: 13px; fill: var(--vp-c-text-1); }
+.concept-diagram .label { text-anchor: middle; dominant-baseline: central; }
+.concept-diagram text[text-anchor="start"].label { text-anchor: start; }
+.concept-diagram .heading { text-anchor: middle; font-weight: 600; }
+.concept-diagram .note { fill: var(--vp-c-text-2); font-size: 12px; }
+.concept-diagram .code { font-family: var(--vp-font-family-mono); font-size: 12px; fill: var(--vp-c-brand-1); }
+.concept-diagram .panel { fill: var(--vp-c-bg-soft); }
+.concept-diagram .box { fill: var(--vp-c-bg); stroke: var(--vp-c-text-3); stroke-width: 1; }
+.concept-diagram .box.accent { stroke: var(--vp-c-brand-1); fill: var(--vp-c-brand-soft); stroke-width: 1.5; }
+.concept-diagram .box.warn { stroke: var(--vp-c-warning-1); stroke-width: 1.5; }
+.concept-diagram .dashed { stroke-dasharray: 5 4; }
+.concept-diagram .arrow, .concept-diagram .link { stroke: var(--vp-c-text-2); stroke-width: 1.5; fill: none; }
+.concept-diagram .arrow.accent, .concept-diagram .link.accent { stroke: var(--vp-c-brand-1); }
+.concept-diagram .link.warn { stroke: var(--vp-c-warning-1); }
+.concept-diagram .head { fill: var(--vp-c-text-2); }

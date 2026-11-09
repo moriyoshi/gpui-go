@@ -1,0 +1,18 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+
+message Hello { uint32 major = 1; uint32 minor = 2; }
+message Capabilities {
+  uint32 major = 1;
+  uint32 minor = 2;
+  uint64 session_id = 3;
+  repeated string features = 4;
+  uint32 max_message_bytes = 5;
+  uint32 max_tree_depth = 6;
+  uint32 max_elements = 7;
+}
+message Quit {}
+// Batches remain available until acknowledged by a subsequent call. A canceled
+// pull can be retried with the same cursor without losing input events.
+message NextEvents { uint32 max_events = 1; uint64 after_sequence = 2; }

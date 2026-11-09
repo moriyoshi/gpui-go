@@ -1,0 +1,84 @@
+name: Activate native release
+
+# Publishing a Release is the human approval; merging this PR deploys the Worker.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published native release tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: activate-native-release
+  cancel-in-progress: false
+
+jobs:
+  catalog:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - id: assets
+        name: Skip releases without native modules
+        run: |
+          set -euo pipefail
+          [[ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" == false ]]
+          count="$(gh release view "$TAG" --json assets --jq '[.assets[].name | select(test("^native-release-.*\\.json$"))] | length')"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [[ "$count" == 0 ]]; then echo "::notice::$TAG has no native module metadata"; fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.assets.outputs.count != '0'
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.assets.outputs.count != '0'
+        with:
+          node-version: '22.18.0'
+          cache: npm
+          cache-dependency-path: dist/metadata-proxy/package-lock.json
+      - name: Download and verify release metadata
+        if: steps.assets.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/release"
+          gh release download "$TAG" --pattern 'native-release-*.json' --pattern SHA256SUMS --dir "$RUNNER_TEMP/release"
+          cd "$RUNNER_TEMP/release"
+          grep ' native-release-.*\.json$' SHA256SUMS | sha256sum --check --strict
+      - name: Merge the release into the catalog
+        if: steps.assets.outputs.count != '0'
+        working-directory: dist/metadata-proxy
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run release:catalog -- "$RUNNER_TEMP/catalog.ts" "$RUNNER_TEMP"/release/native-release-*.json
+          cp "$RUNNER_TEMP/catalog.ts" catalog.ts
+          npm run check
+          npm test
+      - name: Open a pull request
+        if: steps.assets.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- dist/metadata-proxy/catalog.ts; then
+            echo "::notice::Catalog already contains $TAG"
+            exit 0
+          fi
+          branch="catalog/$TAG"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add dist/metadata-proxy/catalog.ts
+          git commit -m "Activate native release $TAG"
+          git push origin "$branch"
+          gh pr create --head "$branch" --title "Activate native release $TAG" \
+            --body "Adds the published \`$TAG\` native modules to the Worker catalog. Merging deploys the Worker."

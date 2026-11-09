@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "package": "native",
+  "bindings": "native-bindings.json",
+  "linux": {
+    "system_libraries": [
+      "libxcb.so.1",
+      "libxkbcommon.so.0",
+      "libxkbcommon-x11.so.0"
+    ]
+  },
+  "windows": {
+    "require_static_runtime": true,
+    "cxx_runtime": "libc++",
+    "max_data_alignment": 32,
+    "link_archives": [
+      "${LLVM_MINGW_TARGET}/lib/libunwind.a",
+      "${LLVM_MINGW_TARGET}/lib/libmingwex.a",
+      "${LLVM_MINGW_TARGET}/lib/libucrt.a"
+    ],
+    "import_libraries": [
+      "${LLVM_MINGW_TARGET}/lib/libkernel32.a",
+      "${LLVM_MINGW_TARGET}/lib/libuser32.a",
+      "${LLVM_MINGW_TARGET}/lib/libgdi32.a",
+      "${LLVM_MINGW_TARGET}/lib/libole32.a",
+      "${LLVM_MINGW_TARGET}/lib/liboleaut32.a",
+      "${LLVM_MINGW_TARGET}/lib/libshell32.a",
+      "${LLVM_MINGW_TARGET}/lib/libshcore.a",
+      "${LLVM_MINGW_TARGET}/lib/libdwmapi.a",
+      "${LLVM_MINGW_TARGET}/lib/libimm32.a",
+      "${LLVM_MINGW_TARGET}/lib/libpropsys.a",
+      "${LLVM_MINGW_TARGET}/lib/libuxtheme.a",
+      "${LLVM_MINGW_TARGET}/lib/libadvapi32.a",
+      "${LLVM_MINGW_TARGET}/lib/libws2_32.a",
+      "${LLVM_MINGW_TARGET}/lib/libuserenv.a",
+      "${LLVM_MINGW_TARGET}/lib/libbcrypt.a",
+      "${LLVM_MINGW_TARGET}/lib/libntdll.a",
+      "${LLVM_MINGW_TARGET}/lib/libd3d11.a",
+      "${LLVM_MINGW_TARGET}/lib/libdxgi.a",
+      "${LLVM_MINGW_TARGET}/lib/libd3dcompiler_47.a",
+      "${LLVM_MINGW_TARGET}/lib/libdwrite.a",
+      "${LLVM_MINGW_TARGET}/lib/libdcomp.a",
+      "${LLVM_MINGW_TARGET}/lib/libcomctl32.a",
+      "${LLVM_MINGW_TARGET}/lib/libktmw32.a",
+      "${LLVM_MINGW_TARGET}/lib/libuiautomationcore.a",
+      "${LLVM_MINGW_TARGET}/lib/libwindowsapp.a",
+      "${LLVM_MINGW_TARGET}/lib/libucrtbase.a"
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+
+message Action { string name = 1; bytes payload = 2; }
+message KeyBinding { string keystroke = 1; string context = 2; Action action = 3; uint64 handler_id = 4; bool stop_propagation = 5; }
+message FocusTarget { Handle view = 1; uint64 element_id = 2; }

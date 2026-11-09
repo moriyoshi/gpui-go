@@ -1,0 +1,77 @@
+name: Deploy metadata proxy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - dist/native-targets.json
+      - dist/metadata-proxy/catalog.ts
+      - dist/metadata-proxy/types.ts
+      - dist/metadata-proxy/worker.ts
+      - dist/metadata-proxy/wrangler.jsonc
+      - dist/metadata-proxy/deploy/**
+      - dist/metadata-proxy/scripts/check-deployment.ts
+      - .github/workflows/deploy-metadata-proxy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-metadata-proxy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: metadata-proxy
+    defaults:
+      run:
+        working-directory: dist/metadata-proxy
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.18.0'
+          cache: npm
+          cache-dependency-path: |
+            dist/metadata-proxy/package-lock.json
+            dist/metadata-proxy/deploy/package-lock.json
+            docs/package-lock.json
+      - name: Check the Worker and catalog
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          npm test
+      - name: Build the documentation
+        run: |
+          npm ci --prefix ../../docs
+          npm run build --prefix ../../docs
+      - name: Install the pinned Wrangler
+        run: npm ci --prefix deploy
+      - name: Bundle without uploading
+        run: deploy/node_modules/.bin/wrangler deploy --dry-run
+      - id: domain
+        name: Read the discovery domain from the target table
+        run: |
+          domain="$(npm run --silent release:targets -- --domain)"
+          echo "domain=$domain" >> "$GITHUB_OUTPUT"
+          if [[ -z "$domain" ]]; then
+            echo "::notice::modulePrefix is still a placeholder; skipping deployment"
+          fi
+      - name: Deploy
+        if: steps.domain.outputs.domain != ''
+        run: deploy/node_modules/.bin/wrangler deploy --domain "$DOMAIN"
+        env:
+          DOMAIN: ${{ steps.domain.outputs.domain }}
+      - name: Check the deployed routes and release assets
+        if: steps.domain.outputs.domain != ''
+        run: npm run --silent release:check-deployment -- "https://$DOMAIN"
+        env:
+          DOMAIN: ${{ steps.domain.outputs.domain }}

@@ -1,0 +1,71 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+import "gpui/v1/feature.proto";
+
+// Test protocol version 1. Available only in an explicitly instrumented native
+// build advertising test-automation-v1. Normal backends reject these requests.
+message AutomationRequest {
+  uint32 version = 1;
+  Handle view = 2;
+  uint64 element_id = 3;
+  oneof operation {
+    AutomationInspect inspect = 10;
+    AutomationPointer pointer = 11;
+    AutomationKey key = 12;
+    AutomationText text = 13;
+    AutomationComposition composition = 14;
+    AutomationQuery query = 15;
+    AutomationReveal reveal = 16;
+  }
+}
+message AutomationInspect {}
+message AutomationReveal {}
+message AutomationQuery {
+  AccessibleRole role = 1;
+  string name = 2;
+  optional string text = 3;
+  bool exact = 4;
+  uint64 element_id = 5;
+}
+message AutomationMatch { uint64 element_id = 1; }
+message AutomationPointer {
+  enum Phase { PHASE_UNSPECIFIED = 0; PHASE_CLICK = 1; PHASE_DOWN = 2; PHASE_UP = 3; PHASE_MOVE = 4; }
+  Phase phase = 1;
+  // Omitted position uses the center of the target's clipped rendered bounds.
+  Point position = 2;
+  Modifiers modifiers = 3;
+  bool pressed = 4;
+}
+message AutomationKey { string keystroke = 1; }
+message AutomationText { string text = 1; }
+// Calls the native EntityInputHandler composition path. This simulates text
+// service callbacks; it does not exercise an installed OS input method.
+message AutomationComposition { string text = 1; bool commit = 2; }
+message AutomationInputState {
+  string value = 1;
+  uint64 epoch = 2;
+  uint64 edit_revision = 3;
+  uint32 selection_start = 4;
+  uint32 selection_end = 5;
+  optional uint32 marked_start = 6;
+  optional uint32 marked_end = 7;
+  Bounds text_bounds = 8;
+}
+message AutomationResult {
+  uint32 version = 1;
+  uint64 revision = 2;
+  uint64 event_sequence = 3;
+  uint64 focused_element_id = 4;
+  uint64 element_id = 5;
+  Bounds bounds = 6;
+  bool rendered = 7;
+  AutomationInputState input = 8;
+  optional string text = 9;
+  repeated AutomationMatch matches = 10;
+  bool enabled = 11;
+  AccessibleRole role = 12;
+  optional bool checked = 13;
+  string name = 14;
+}

@@ -1,0 +1,11 @@
+syntax = "proto3";
+package gpui.v1;
+option go_package = "github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1";
+import "gpui/v1/types.proto";
+import "gpui/v1/element.proto";
+
+message ViewSnapshot { uint64 revision = 1; Element root = 2; }
+// Commits replace the entire view and implicitly notify GPUI. Revisions must
+// increase; successful responses acknowledge installation, not presentation.
+message CommitView { Handle view = 1; ViewSnapshot snapshot = 2; }
+message ViewCommitted { Handle view = 1; uint64 revision = 2; }

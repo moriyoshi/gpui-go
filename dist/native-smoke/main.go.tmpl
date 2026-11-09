@@ -1,0 +1,33 @@
+package main
+
+import (
+	"fmt"
+	"runtime"
+	"unsafe"
+
+	native "{{MODULE_PATH}}"
+)
+
+func init() { runtime.LockOSThread() }
+
+func main() {
+	if status := native.GPUIInit(); status != 0 {
+		panic(fmt.Sprintf("GPUI initialization: %d", status))
+	}
+	rt := native.SableRuntimeNew()
+	if rt == nil {
+		panic("Sable runtime creation failed")
+	}
+	if native.SableCompletionFD(rt) < 0 {
+		panic("invalid Sable completion descriptor")
+	}
+	var token, result uint64
+	if native.SableNextCompletion(rt, unsafe.Pointer(&token), unsafe.Pointer(&result)) != 0 {
+		panic("new runtime has unexpected completions")
+	}
+	native.SableRuntimeShutdown(rt)
+	native.SableRuntimeFree(rt)
+	native.TLSFinalizeCurrentThread()
+	fmt.Printf("PASS: packaged native module initialized GPUI/Sable and shut down; TLS live=%d freed=%d\n",
+		native.TLSLiveBlocks(), native.TLSDestroyedBlocks())
+}

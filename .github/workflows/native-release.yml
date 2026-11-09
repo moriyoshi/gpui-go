@@ -1,0 +1,291 @@
+name: Prepare native release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Canonical native module version (for example v0.1.0)
+        required: true
+        type: string
+      targets:
+        description: Comma-separated GOOS/GOARCH list from dist/native-targets.json, or all
+        required: true
+        default: all
+        type: string
+      bao_revision:
+        description: Exact Bao commit (default is released v0.0.2)
+        required: true
+        default: '4ca57fab0ddfd368c8ea89b83bf355682671ee27'
+        type: string
+      create_draft:
+        description: Upload the checked assets to a new draft GitHub Release
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_VERSION: ${{ inputs.version }}
+  BAO_REVISION: ${{ inputs.bao_revision }}
+  GO_VERSION: '1.26.10'
+  NODE_VERSION: '22.18.0'
+  RUST_VERSION: '1.99.1'
+  LLVM_MINGW_RELEASE: '20261104'
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: dist/metadata-proxy/package-lock.json
+      - name: Check publication inputs and TypeScript tooling
+        working-directory: dist/metadata-proxy
+        run: |
+          set -euo pipefail
+          [[ "$BAO_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          npm ci --ignore-scripts
+          npm run check
+          npm test
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Check the umbrella shim matches the target table
+        run: go test ./internal/nativeshim
+      - id: matrix
+        name: Select targets
+        working-directory: dist/metadata-proxy
+        env:
+          TARGETS: ${{ inputs.targets }}
+          REQUIRE_PUBLISHABLE: ${{ inputs.create_draft }}
+        run: |
+          set -euo pipefail
+          echo "matrix=$(npm run --silent release:targets -- "$TARGETS")" >> "$GITHUB_OUTPUT"
+
+  # Stage 1: one consolidated static library per target.
+  library:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      CARGO_HOME: ${{ github.workspace }}/.cache/cargo
+      WORK: ${{ github.workspace }}/.agents-workspace/tmp/native-release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          version: '35.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Linux GPUI build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libfontconfig1-dev libfreetype-dev libwayland-dev \
+            libx11-xcb-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev
+      - name: Install LLVM-MinGW
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/llvm-mingw
+        with:
+          release: ${{ env.LLVM_MINGW_RELEASE }}
+      - name: Install the Rust toolchain and target
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          rustup target add --toolchain "$RUST_VERSION" "${{ matrix.rust }}"
+      - name: Build the static library
+        working-directory: dist/metadata-proxy
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run release:archive -- --target "${{ matrix.go }}" --version "$RELEASE_VERSION" --out "$WORK"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-library-${{ matrix.slug }}
+          path: .agents-workspace/tmp/native-release/
+          if-no-files-found: error
+          include-hidden-files: true
+          compression-level: 0
+
+  # Stage 2 translates that library; stage 4 packages the result as a module.
+  syso-and-module:
+    needs: [plan, library]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      WORK: ${{ github.workspace }}/.agents-workspace/tmp/native-release
+      BAO_ROOT: ${{ github.workspace }}/.agents-workspace/tmp/bao-producer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: moriyoshi/bao
+          ref: ${{ inputs.bao_revision }}
+          path: .agents-workspace/tmp/bao-producer
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: Install Linux system libraries for Bao imports
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils fontconfig fonts-dejavu-core libfontconfig1-dev \
+            libfreetype-dev libwayland-dev libx11-xcb-dev libxcb1-dev libxcb-xkb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev
+      - name: Install LLVM-MinGW
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/llvm-mingw
+        with:
+          release: ${{ env.LLVM_MINGW_RELEASE }}
+      - name: Install the Rust toolchain
+        run: rustup toolchain install "$RUST_VERSION" --profile minimal
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-library-${{ matrix.slug }}
+          path: .agents-workspace/tmp/native-release/
+      - name: Build the pinned Bao producer
+        working-directory: .agents-workspace/tmp/bao-producer
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BAO_REVISION"
+          # Bao's verify package assumes POSIX permissions and executable names.
+          if [[ "${{ runner.os }}" != Windows ]]; then go test ./...; fi
+          mkdir -p "$GITHUB_WORKSPACE/bin"
+          go build -trimpath -ldflags "-X main.commit=$BAO_REVISION" -o "$GITHUB_WORKSPACE/bin/bao${{ runner.os == 'Windows' && '.exe' || '' }}" ./cmd/bao
+      - name: Generate syso objects and bindings from the static library
+        working-directory: dist/metadata-proxy
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          runtime=()
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            prefix="$(case "${{ matrix.go }}" in windows/amd64) echo x86_64;; *) echo aarch64;; esac)-w64-mingw32"
+            runtime=(--windows-runtime "$LLVM_MINGW/$prefix")
+          fi
+          npm run release:syso -- --bao "$GITHUB_WORKSPACE/bin/bao${{ runner.os == 'Windows' && '.exe' || '' }}" --bao-sha "$BAO_REVISION" \
+            --target "${{ matrix.go }}" --version "$RELEASE_VERSION" --out "$WORK" ${runtime[@]+"${runtime[@]}"}
+      - name: Package the Go module ZIP
+        working-directory: dist/metadata-proxy
+        run: |
+          set -euo pipefail
+          npm run release:module -- --bao-root "$BAO_ROOT" --target "${{ matrix.go }}" \
+            --version "$RELEASE_VERSION" --repository "$GITHUB_REPOSITORY" \
+            --time "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" --source-sha "$GITHUB_SHA" --out "$WORK"
+      - name: Check the module and umbrella shim with stock Go and native execution
+        working-directory: dist/metadata-proxy
+        run: |
+          npm run release:smoke -- --release "$WORK" --target "${{ matrix.go }}" \
+            --out "$WORK/check" --binary "$GITHUB_WORKSPACE/bin/native-release-smoke"
+      - name: Retain release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-assets-${{ matrix.slug }}
+          path: .agents-workspace/tmp/native-release/assets/
+          if-no-files-found: error
+          include-hidden-files: true
+          compression-level: 0
+      - name: Retain native smoke evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-evidence-${{ matrix.slug }}
+          path: |
+            .agents-workspace/tmp/native-release/bao-build.log
+            .agents-workspace/tmp/native-release/check/*.log
+            .agents-workspace/tmp/native-release/check/commands.json
+          if-no-files-found: ignore
+          include-hidden-files: true
+
+  # Stage 3: checksum every asset together, then optionally draft the Release.
+  release:
+    needs: syso-and-module
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_SHA: ${{ github.sha }}
+      CREATE_DRAFT: ${{ inputs.create_draft }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: native-assets-*
+          merge-multiple: true
+          path: candidate/assets
+      - name: Write SHA256SUMS, notes and catalog candidate
+        working-directory: dist/metadata-proxy
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          placeholder=()
+          if [[ "$CREATE_DRAFT" != true ]]; then placeholder=(--allow-placeholder-prefix yes); fi
+          npm run release:collect -- --assets "$GITHUB_WORKSPACE/candidate/assets" --version "$RELEASE_VERSION" \
+            --source-sha "$SOURCE_SHA" --bao-sha "$BAO_REVISION" --out "$GITHUB_WORKSPACE/candidate" "${placeholder[@]}"
+      - name: Verify the checksum list
+        working-directory: candidate/assets
+        run: sha256sum --check --strict SHA256SUMS
+      - name: Retain the release candidate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-release-${{ inputs.version }}
+          path: candidate/
+          if-no-files-found: error
+          compression-level: 0
+      - name: Refuse to replace an existing release and create a draft
+        if: ${{ inputs.create_draft }}
+        run: |
+          set -euo pipefail
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' > existing-releases.txt
+          if grep --fixed-strings --line-regexp --quiet "$RELEASE_VERSION" existing-releases.txt; then
+            echo "Release already exists; refusing to replace assets" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_VERSION" candidate/assets/* \
+            --target "$SOURCE_SHA" --draft --title "Native modules $RELEASE_VERSION" \
+            --notes-file candidate/release-notes.md
