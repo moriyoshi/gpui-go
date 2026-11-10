@@ -57,6 +57,20 @@ func (n *Node) Hover(style *Style) *Node {
 	}
 	return n
 }
+
+// When sets refinements that GPUI applies while the window matches each one's
+// width range and color scheme, without a Go event or another snapshot. The
+// backend needs the conditional-styles capability.
+func (n *Node) When(conditions ...*ConditionalStyle) *Node {
+	n.element.ConditionalStyles = nil
+	for _, condition := range conditions {
+		if condition == nil {
+			panic("gpui: nil conditional style")
+		}
+		n.element.ConditionalStyles = append(n.element.ConditionalStyles, proto.Clone(condition).(*ConditionalStyle))
+	}
+	return n
+}
 func (n *Node) StopPropagation() *Node {
 	if n.element.OnClick == nil {
 		panic("gpui: StopPropagation requires OnClick")

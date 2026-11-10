@@ -1,4 +1,4 @@
-//go:build gpui && gpui_headless
+//go:build (gpui || gpui_prebuilt) && gpui_headless
 
 package host
 
@@ -91,6 +91,9 @@ func TestSableCounterRoundTrip(t *testing.T) {
 		if err := exerciseCoreFeatures(ctx, client); err != nil {
 			return err
 		}
+		if err := exerciseWindowState(ctx, client); err != nil {
+			return err
+		}
 		// Quit also has to wake a Rust-side event pull, so Run's teardown can
 		// wait for every Sable call before freeing the runtime.
 		// Run cancels the application context as soon as the platform exits.
@@ -116,6 +119,70 @@ func TestSableCounterRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// The headless backend has no real window: it reports the requested size,
+// applies resize commands at once, and accepts conditional styles.
+func exerciseWindowState(ctx context.Context, client *clientlib.Client) error {
+	for _, feature := range []string{"window-size", "window-color-scheme", "conditional-styles"} {
+		if !client.Supports(feature) {
+			return fmt.Errorf("backend lacks %s", feature)
+		}
+	}
+	root := scene.Div(1, scene.Text(2, "responsive")).When(&scene.ConditionalStyle{
+		MinWidth: scene.Ptr[float32](768), Style: &pb.Style{Padding: scene.Padding(16)},
+	}, &scene.ConditionalStyle{
+		ColorScheme: scene.ColorSchemeDark, HoverStyle: &pb.Style{Opacity: scene.Ptr[float32](0.5)},
+	})
+	window, err := client.OpenWindow(ctx, clientlib.WindowOptions{Title: "Window state", Width: 500, Height: 300}, root)
+	if err != nil {
+		return err
+	}
+	if got, ok := window.Size(); !ok || got != (clientlib.WindowSize{Width: 500, Height: 300}) {
+		return fmt.Errorf("opened size: %v %v", got, ok)
+	}
+	if got, ok := window.ColorScheme(); !ok || got != scene.ColorSchemeLight {
+		return fmt.Errorf("opened color scheme: %v %v", got, ok)
+	}
+	var seen []clientlib.WindowSize
+	window.OnResized(func(_ context.Context, size clientlib.WindowSize) error {
+		seen = append(seen, size)
+		return nil
+	})
+	schemes := 0
+	window.OnColorSchemeChanged(func(context.Context, scene.ColorScheme) error {
+		schemes++
+		return nil
+	})
+	if err := window.Resize(ctx, 900, 400); err != nil {
+		return err
+	}
+	events, err := client.NextEvents(ctx)
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		if err := client.Dispatch(ctx, event); err != nil {
+			return err
+		}
+	}
+	want := clientlib.WindowSize{Width: 900, Height: 400}
+	if got, _ := window.Size(); got != want || len(seen) != 1 || seen[0] != want || schemes != 0 {
+		return fmt.Errorf("resized to %v, resize callbacks %v, color scheme callbacks %d, events %v", got, seen, schemes, events)
+	}
+	// The Rust validator, not only the Go guard, checks conditional styles.
+	invalid := scene.Text(1, "x").When(&scene.ConditionalStyle{
+		MinWidth: scene.Ptr[float32](900), MaxWidth: scene.Ptr[float32](100), Style: &pb.Style{Opacity: scene.Ptr[float32](1)},
+	})
+	var protocolErr *clientlib.ProtocolError
+	if err := window.Set(ctx, invalid); !errors.As(err, &protocolErr) || protocolErr.Code != pb.ErrorCode_ERROR_CODE_INVALID_ARGUMENT {
+		return fmt.Errorf("inverted width range: %v", err)
+	}
+	if err := window.Close(ctx); err != nil {
+		return err
+	}
+	_, err = client.NextEvents(ctx)
+	return err
 }
 
 func exerciseTextInput(ctx context.Context, client *clientlib.Client) error {

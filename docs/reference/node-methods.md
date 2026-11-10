@@ -6,6 +6,7 @@ These `*scene.Node` methods work on every element kind and return the node for c
 | --- | --- |
 | [`Style`](#style) | Sets the element's style |
 | [`Hover`](#hover) | Sets style changes applied while hovered |
+| [`When`](./window-state#conditional-styles) | Sets style changes applied at some window widths or color schemes |
 | [`OnClick`](#onclick) | Attaches a click handler |
 | [`StopPropagation`](#stoppropagation) | Stops a click from reaching ancestors |
 | [`Focusable`](#focusable) | Makes the element focusable |

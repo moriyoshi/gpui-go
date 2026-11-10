@@ -13,9 +13,9 @@ on:
         default: all
         type: string
       bao_revision:
-        description: Exact Bao commit (default is released v0.0.2)
+        description: Exact Bao commit (default is released v0.0.3)
         required: true
-        default: '4ca57fab0ddfd368c8ea89b83bf355682671ee27'
+        default: 'e05f1cfb2d2054457067f3268908992ca9b1df2c'
         type: string
       create_draft:
         description: Upload the checked assets to a new draft GitHub Release
@@ -258,7 +258,7 @@ jobs:
           pattern: native-assets-*
           merge-multiple: true
           path: candidate/assets
-      - name: Write SHA256SUMS, notes and catalog candidate
+      - name: Write SHA256SUMS and notes
         working-directory: dist/metadata-proxy
         run: |
           set -euo pipefail

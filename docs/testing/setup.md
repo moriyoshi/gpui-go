@@ -226,15 +226,12 @@ Three rules matter here:
 ## 4. Build and run
 
 ```sh
-CGO_ENABLED=0 go build -tags gpui,gpui_prebuilt,gpui_e2e -o uitest-app .
+CGO_ENABLED=0 go build -tags gpui_prebuilt,gpui_e2e -o uitest-app .
 ./uitest-app
 ```
 
-[Prebuilt modules](/guide/prebuilt-modules) already include test automation, so `gpui_e2e` is the only tag you add. As in any prebuilt build, the program imports the package for its platform, such as `github.com/moriyoshi/gpui-go/prebuilt/linux/amd64`. On macOS and on a Linux desktop, the tests open real windows.
+[Prebuilt modules](/guide/prebuilt-modules) already include test automation, so `gpui_e2e` is the only tag you add. On macOS and on a Linux desktop, the tests open real windows.
 
-::: warning Not published yet
-No prebuilt version exists, so this command cannot resolve today. Use [a source build](#build-the-native-library-from-source) for now.
-:::
 
 ## Build the native library from source
 

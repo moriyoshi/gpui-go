@@ -21,6 +21,57 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Whether a window is drawn light or dark, as CSS prefers-color-scheme. The
+// platform's vibrant and high-contrast variants report as their base scheme.
+type ColorScheme int32
+
+const (
+	ColorScheme_COLOR_SCHEME_UNSPECIFIED ColorScheme = 0
+	ColorScheme_COLOR_SCHEME_LIGHT       ColorScheme = 1
+	ColorScheme_COLOR_SCHEME_DARK        ColorScheme = 2
+)
+
+// Enum value maps for ColorScheme.
+var (
+	ColorScheme_name = map[int32]string{
+		0: "COLOR_SCHEME_UNSPECIFIED",
+		1: "COLOR_SCHEME_LIGHT",
+		2: "COLOR_SCHEME_DARK",
+	}
+	ColorScheme_value = map[string]int32{
+		"COLOR_SCHEME_UNSPECIFIED": 0,
+		"COLOR_SCHEME_LIGHT":       1,
+		"COLOR_SCHEME_DARK":        2,
+	}
+)
+
+func (x ColorScheme) Enum() *ColorScheme {
+	p := new(ColorScheme)
+	*p = x
+	return p
+}
+
+func (x ColorScheme) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ColorScheme) Descriptor() protoreflect.EnumDescriptor {
+	return file_gpui_v1_types_proto_enumTypes[0].Descriptor()
+}
+
+func (ColorScheme) Type() protoreflect.EnumType {
+	return &file_gpui_v1_types_proto_enumTypes[0]
+}
+
+func (x ColorScheme) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ColorScheme.Descriptor instead.
+func (ColorScheme) EnumDescriptor() ([]byte, []int) {
+	return file_gpui_v1_types_proto_rawDescGZIP(), []int{0}
+}
+
 // References are scoped to the session negotiated by Hello. Zero is invalid.
 type Handle struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -589,7 +640,11 @@ const file_gpui_v1_types_proto_rawDesc = "" +
 	"\acontrol\x18\x01 \x01(\bR\acontrol\x12\x10\n" +
 	"\x03alt\x18\x02 \x01(\bR\x03alt\x12\x14\n" +
 	"\x05shift\x18\x03 \x01(\bR\x05shift\x12\x1a\n" +
-	"\bplatform\x18\x04 \x01(\bR\bplatformB1Z/github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1b\x06proto3"
+	"\bplatform\x18\x04 \x01(\bR\bplatform*Z\n" +
+	"\vColorScheme\x12\x1c\n" +
+	"\x18COLOR_SCHEME_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12COLOR_SCHEME_LIGHT\x10\x01\x12\x15\n" +
+	"\x11COLOR_SCHEME_DARK\x10\x02B1Z/github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1b\x06proto3"
 
 var (
 	file_gpui_v1_types_proto_rawDescOnce sync.Once
@@ -603,24 +658,26 @@ func file_gpui_v1_types_proto_rawDescGZIP() []byte {
 	return file_gpui_v1_types_proto_rawDescData
 }
 
+var file_gpui_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_gpui_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_gpui_v1_types_proto_goTypes = []any{
-	(*Handle)(nil),    // 0: gpui.v1.Handle
-	(*Point)(nil),     // 1: gpui.v1.Point
-	(*Size)(nil),      // 2: gpui.v1.Size
-	(*Bounds)(nil),    // 3: gpui.v1.Bounds
-	(*Length)(nil),    // 4: gpui.v1.Length
-	(*Color)(nil),     // 5: gpui.v1.Color
-	(*Edges)(nil),     // 6: gpui.v1.Edges
-	(*Modifiers)(nil), // 7: gpui.v1.Modifiers
+	(ColorScheme)(0),  // 0: gpui.v1.ColorScheme
+	(*Handle)(nil),    // 1: gpui.v1.Handle
+	(*Point)(nil),     // 2: gpui.v1.Point
+	(*Size)(nil),      // 3: gpui.v1.Size
+	(*Bounds)(nil),    // 4: gpui.v1.Bounds
+	(*Length)(nil),    // 5: gpui.v1.Length
+	(*Color)(nil),     // 6: gpui.v1.Color
+	(*Edges)(nil),     // 7: gpui.v1.Edges
+	(*Modifiers)(nil), // 8: gpui.v1.Modifiers
 }
 var file_gpui_v1_types_proto_depIdxs = []int32{
-	1, // 0: gpui.v1.Bounds.origin:type_name -> gpui.v1.Point
-	2, // 1: gpui.v1.Bounds.size:type_name -> gpui.v1.Size
-	4, // 2: gpui.v1.Edges.top:type_name -> gpui.v1.Length
-	4, // 3: gpui.v1.Edges.right:type_name -> gpui.v1.Length
-	4, // 4: gpui.v1.Edges.bottom:type_name -> gpui.v1.Length
-	4, // 5: gpui.v1.Edges.left:type_name -> gpui.v1.Length
+	2, // 0: gpui.v1.Bounds.origin:type_name -> gpui.v1.Point
+	3, // 1: gpui.v1.Bounds.size:type_name -> gpui.v1.Size
+	5, // 2: gpui.v1.Edges.top:type_name -> gpui.v1.Length
+	5, // 3: gpui.v1.Edges.right:type_name -> gpui.v1.Length
+	5, // 4: gpui.v1.Edges.bottom:type_name -> gpui.v1.Length
+	5, // 5: gpui.v1.Edges.left:type_name -> gpui.v1.Length
 	6, // [6:6] is the sub-list for method output_type
 	6, // [6:6] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name
@@ -644,13 +701,14 @@ func file_gpui_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gpui_v1_types_proto_rawDesc), len(file_gpui_v1_types_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_gpui_v1_types_proto_goTypes,
 		DependencyIndexes: file_gpui_v1_types_proto_depIdxs,
+		EnumInfos:         file_gpui_v1_types_proto_enumTypes,
 		MessageInfos:      file_gpui_v1_types_proto_msgTypes,
 	}.Build()
 	File_gpui_v1_types_proto = out.File

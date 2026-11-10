@@ -1,4 +1,4 @@
-//go:build gpui
+//go:build gpui || gpui_prebuilt
 
 package host
 

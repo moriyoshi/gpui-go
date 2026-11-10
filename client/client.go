@@ -45,13 +45,15 @@ type Client struct {
 	handlers   map[uint64]func(context.Context, *Event) error
 	eventsMu   sync.Mutex
 	cursor     uint64
+	windowsMu  sync.Mutex
+	windows    map[uint64]*Window
 }
 
 func NewClient(ctx context.Context, transport Transport) (*Client, error) {
 	if transport == nil {
 		return nil, errors.New("gpui: nil transport")
 	}
-	c := &Client{transport: transport, handlers: make(map[uint64]func(context.Context, *Event) error)}
+	c := &Client{transport: transport, handlers: make(map[uint64]func(context.Context, *Event) error), windows: map[uint64]*Window{}}
 	response, err := c.call(ctx, OperationRequest, &pb.Request{Body: &pb.Request_Hello{Hello: &pb.Hello{Major: 1}}})
 	if err != nil {
 		return nil, err

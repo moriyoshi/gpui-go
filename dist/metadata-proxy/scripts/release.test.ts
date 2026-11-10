@@ -5,9 +5,8 @@ import { join } from "node:path";
 import test, { after } from "node:test";
 import { unzipSync, strFromU8 } from "fflate";
 import { packageRelease, type PackageOptions } from "./release.ts";
-import { mergeCatalog } from "./catalog.ts";
 import { rewriteDarwinImports } from "./darwin-imports.ts";
-import { checkDeployment } from "./check-deployment.ts";
+import { checkDeployment, checkRelease } from "./check-deployment.ts";
 import { foldFunctionAliases } from "./linux-prelink.ts";
 import { createSite, createWorker } from "../worker.ts";
 import { assertPublishablePrefix, libraryAssetName, moduleName, modulePrefix, nativeTarget, nativeTargets, selectTargets, sysoAssetName } from "./targets.ts";
@@ -20,7 +19,7 @@ async function fixture(): Promise<PackageOptions> {
   fixtures.push(dir);
   const root = join(dir, "module");
   await mkdir(root);
-  const module = "native.example.org/gpui/darwin-arm64";
+  const module = "native.example.org/gpui/darwin/arm64";
   await writeFile(join(root, "go.mod"), `module ${module}\n\ngo 1.26.5\n`);
   await writeFile(join(root, "bindings.go"), "package native\n");
   // Opaque ZIP fixture only. These bytes are never linked or executed.
@@ -80,18 +79,24 @@ test("packager rejects case collisions", async (context) => {
   await assert.rejects(packageRelease(collision), /Case-colliding/);
 });
 
-test("catalog merge preserves old releases and refuses changed existing metadata", async () => {
-  const first = await packageRelease(await fixture());
-  const existing = mergeCatalog([], [first]);
-  const nextOptions = await fixture();
-  const next = await packageRelease({ ...nextOptions, version: "v0.2.0" });
-  const merged = mergeCatalog(existing, [next]);
-  assert.deepEqual(Object.keys(merged[0]!.versions), ["v0.1.0", "v0.2.0"]);
-  assert.deepEqual(mergeCatalog(existing, [first]), existing);
-  const changed = { ...first, entry: { ...first.entry,
-    versions: { "v0.1.0": { ...first.entry.versions["v0.1.0"]!, time: "2026-11-09T00:00:00Z" } } } };
-  assert.throws(() => mergeCatalog(existing, [changed]), /Refusing to change published/);
-  assert.throws(() => mergeCatalog(existing, [{ ...first, target: "linux/arm64" }]), /Invalid ZIP/);
+test("packaged metadata is exactly what the Worker serves", async () => {
+  const options = await fixture();
+  const metadata = await packageRelease(options);
+  const assets = options.out;
+  const table = { modulePrefix: "native.example.org/gpui", repository: options.repository, targets: [{ go: options.target }] };
+  const worker = createWorker(table, async (url) => {
+    assert.equal(url, `https://github.com/moriyoshi/gpui-go/releases/download/v0.1.0/native-release-darwin-arm64.json`);
+    return readFile(join(assets, "native-release-darwin-arm64.json"), "utf8");
+  });
+  const proxy = `https://native.example.org/proxy/${options.module}/@v/v0.1.0`;
+  const mod = await worker.fetch(new Request(`${proxy}.mod`), {});
+  assert.equal(await mod.text(), await readFile(join(options.root, "go.mod"), "utf8"));
+  assert.deepEqual(await (await worker.fetch(new Request(`${proxy}.info`), {})).json(), { Version: "v0.1.0", Time: options.time });
+  assert.equal((await worker.fetch(new Request(`${proxy}.zip`), {})).headers.get("Location"),
+    `https://github.com/moriyoshi/gpui-go/releases/download/v0.1.0/${metadata.zip.name}`);
+  const elsewhere = await fixture();
+  await assert.rejects(packageRelease({ ...elsewhere, module: "native.example.org/gpui/darwin-arm64" }), /must end in \/darwin\/arm64/);
+  await assert.rejects(packageRelease({ ...elsewhere, version: "v2.0.0" }), /does not match module path/);
 });
 
 test("library and syso asset names follow the target table", () => {
@@ -132,18 +137,36 @@ test("Darwin imports bind through umbrellas and leave other libraries alone", ()
   assert.equal(seen.size, 3);
 });
 
-test("deployment check follows the routes Go uses and detects a missing asset", async () => {
-  const entry = { path: "native.example.org/gpui/darwin-arm64", repository: "moriyoshi/gpui-go", versions: { "v0.1.0": {
-    time: "2026-11-09T00:00:00Z", tag: "v0.1.0", asset: "gpui-native-v0.1.0-darwin-arm64.zip",
-    goMod: "module native.example.org/gpui/darwin-arm64\n\ngo 1.26.10\n" } } };
-  const worker = createSite(createWorker([entry]));
-  const page = (status: number) => ({ ASSETS: { fetch: async () => new Response("docs", { status, headers: { "Content-Type": "text/html" } }) } });
-  const fetcher = (assetStatus: number, docsStatus = 200) => async (request: Request): Promise<Response> =>
-    request.url.startsWith("https://github.com/") ? new Response(null, { status: assetStatus }) : worker.fetch(request, page(docsStatus));
-  assert.equal(await checkDeployment("https://native.example.org", [entry], fetcher(200)), 1);
-  await assert.rejects(checkDeployment("https://native.example.org", [entry], fetcher(404)), /unavailable \(404\)/);
-  await assert.rejects(checkDeployment("https://other.example.org", [entry], fetcher(200)), /did not advertise/);
-  await assert.rejects(checkDeployment("https://native.example.org", [entry], fetcher(200, 404)), /home page is unavailable \(404\)/);
+test("deployment check follows the routes Go uses and detects missing assets", async () => {
+  const table = { modulePrefix: "native.example.org/gpui", repository: "moriyoshi/gpui-go", targets: [{ go: "darwin/arm64" }] };
+  const goMod = "module native.example.org/gpui/darwin/arm64\n\ngo 1.26.10\n";
+  const metadata = JSON.stringify({ schema: 1, target: "darwin/arm64",
+    entry: { path: "native.example.org/gpui/darwin/arm64", repository: "moriyoshi/gpui-go", versions: { "v0.1.0": {
+      time: "2026-11-09T00:00:00Z", tag: "v0.1.0", asset: "gpui-native-v0.1.0-darwin-arm64.zip", goMod } } },
+    zip: { name: "gpui-native-v0.1.0-darwin-arm64.zip", sha256: "0".repeat(64), size: 1 } });
+  const github = (zipStatus: number, metadataStatus: number) => async (request: Request): Promise<Response> =>
+    request.url.endsWith(".json") ? new Response(metadataStatus === 200 ? metadata : null, { status: metadataStatus })
+      : new Response(null, { status: zipStatus });
+  const page = (status: number) => ({ NATIVE_VERSION: "v0.1.0",
+    ASSETS: { fetch: async () => new Response("docs", { status, headers: { "Content-Type": "text/html" } }) } });
+  const fetcher = (zipStatus: number, docsStatus = 200, metadataStatus = 200, version = "v0.1.0") => {
+    const assets = github(zipStatus, metadataStatus);
+    const site = createSite(createWorker(table, async (url) => {
+      const response = await assets(new Request(url));
+      return response.status === 404 ? undefined : response.text();
+    }));
+    const env = { ...page(docsStatus), NATIVE_VERSION: version };
+    return async (request: Request): Promise<Response> =>
+      request.url.startsWith("https://github.com/") ? assets(request) : site.fetch(request, env);
+  };
+  assert.equal(await checkDeployment("https://native.example.org", table, "v0.1.0", fetcher(200)), 1);
+  await assert.rejects(checkDeployment("https://native.example.org", table, "v0.1.0", fetcher(404)), /asset is unavailable \(404\)/);
+  await assert.rejects(checkDeployment("https://native.example.org", table, "v0.1.0", fetcher(200, 200, 404)), /metadata is unavailable \(404\)/);
+  await assert.rejects(checkDeployment("https://other.example.org", table, "v0.1.0", fetcher(200)), /did not advertise/);
+  await assert.rejects(checkDeployment("https://native.example.org", table, "v0.1.0", fetcher(200, 404)), /home page is unavailable \(404\)/);
+  // A Worker deployed with another NATIVE_VERSION does not list the release.
+  await assert.rejects(checkDeployment("https://native.example.org", table, "v0.1.0", fetcher(200, 200, 200, "v0.0.9")), /does not list v0\.1\.0/);
+  await assert.rejects(checkRelease({ ...table, targets: [{ go: "linux/amd64" }] }, "v0.1.0", github(200, 200)), /schema-1 metadata for linux\/amd64/);
 });
 
 test("function aliases fold onto one symbol, preferring exports", () => {

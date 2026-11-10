@@ -7,5 +7,13 @@ import "gpui/v1/entity.proto";
 message WindowOptions { string title = 1; Size size = 2; }
 message OpenWindow { WindowOptions options = 1; ViewSnapshot initial_view = 2; }
 // A window owns its root view. Closing it releases both references.
-message WindowOpened { Handle window = 1; Handle view = 2; uint64 revision = 3; }
+// viewport is the drawable area in logical pixels, set by backends with the
+// window-size capability; color_scheme is set by those with window-color-scheme.
+message WindowOpened {
+  Handle window = 1;
+  Handle view = 2;
+  uint64 revision = 3;
+  Size viewport = 4;
+  ColorScheme color_scheme = 5;
+}
 message CloseWindow { Handle window = 1; }

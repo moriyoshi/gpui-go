@@ -6,6 +6,18 @@ import "gpui/v1/style.proto";
 import "gpui/v1/feature.proto";
 import "gpui/v1/action.proto";
 
+// A partial refinement applied while the element's window matches every set
+// condition, evaluated natively at render time. Widths compare the window's
+// viewport in logical pixels. Refinements apply in order: style refinements
+// after Element.style, hover refinements after Element.hover_style.
+// Requires the conditional-styles capability.
+message ConditionalStyle {
+  optional float min_width = 1; // Inclusive.
+  optional float max_width = 2; // Exclusive.
+  ColorScheme color_scheme = 3; // Unspecified matches either scheme.
+  Style style = 4;
+  Style hover_style = 5;
+}
 message Container { repeated Element children = 1; }
 message Text { string content = 1; }
 message Image { Handle resource = 1; }
@@ -43,6 +55,7 @@ message Element {
   Accessibility accessibility = 7;
   repeated KeyBinding key_bindings = 8;
   OpacityAnimation animation = 9;
+  repeated ConditionalStyle conditional_styles = 17;
   oneof kind {
     Container container = 10;
     Text text = 11;

@@ -1,4 +1,4 @@
-//go:build gpui && gpui_prebuilt
+//go:build gpui_prebuilt
 
 package nativeshim
 

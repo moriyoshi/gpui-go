@@ -143,3 +143,60 @@ func TestUnsupportedGoXOutputFailsAndDisposesPartialBindings(t *testing.T) {
 		t.Fatalf("failed build leaked bindings: %+v", g.Stats())
 	}
 }
+
+func TestGoXTWClassAttributeAcceptsStringsAndAccessors(t *testing.T) {
+	g := reactive.NewGraph()
+	defer g.Dispose()
+	d := ui.New(g.Root(), nil)
+	wide := reactive.NewSignal(d.Scope(), false)
+	element := func(class any) gox.Elem {
+		return gox.Elem(func(cur gox.Cursor) error {
+			if err := cur.Init("div"); err != nil {
+				return err
+			}
+			if err := cur.Set("twClass", class); err != nil {
+				return err
+			}
+			if err := cur.Set("style", &scene.Style{Opacity: scene.Ptr[float32](0.5)}); err != nil {
+				return err
+			}
+			if err := cur.Submit(); err != nil {
+				return err
+			}
+			return cur.Close()
+		})
+	}
+	static, err := nativegox.Build(context.Background(), d, d.Scope(), element("p-2 hover:bg-red-500"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := d.Snapshot(static)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if style := snapshot.Proto().Style; style.Padding.Top.GetRems() != 0.5 || style.GetOpacity() != 0.5 || snapshot.Proto().HoverStyle.Background == nil {
+		t.Errorf("class plus style = %v hover %v", style, snapshot.Proto().HoverStyle)
+	}
+	bound, err := nativegox.Build(context.Background(), d, d.Scope(), element(func() string {
+		if wide.Get() {
+			return "w-full"
+		}
+		return "w-1/2"
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := wide.Set(true); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err = d.Snapshot(bound)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Proto().Style.Width.GetPercent() != 100 {
+		t.Errorf("bound class width = %v", snapshot.Proto().Style.Width)
+	}
+	if _, err := nativegox.Build(context.Background(), d, d.Scope(), element(42)); err == nil || !strings.Contains(err.Error(), "twClass requires") {
+		t.Errorf("non-string class = %v", err)
+	}
+}

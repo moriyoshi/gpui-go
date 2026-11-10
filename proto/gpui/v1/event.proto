@@ -12,6 +12,10 @@ message PointerEvent { Point position = 1; MouseButton button = 2; Modifiers mod
 message FocusChanged { bool focused = 1; }
 message FileDrop { repeated string paths = 1; }
 message WindowClosed {}
+// The window's drawable area changed, in logical pixels.
+message WindowResized { Size viewport = 1; }
+// The window switched between the light and dark color schemes.
+message ColorSchemeChanged { ColorScheme color_scheme = 1; }
 message ViewUpdated {}
 message TextChanged {
   string value = 1;
@@ -43,6 +47,10 @@ message Event {
     ModelState model_changed = 23;
     PathResult path_result = 24;
     DragData data_drop = 25;
+    // Undelivered resize or color scheme events are replaced by newer ones of
+    // the same kind for the same window, so a consumer sees the latest value.
+    WindowResized window_resized = 26;
+    ColorSchemeChanged color_scheme_changed = 27;
   }
 }
 message EventBatch { repeated Event events = 1; }

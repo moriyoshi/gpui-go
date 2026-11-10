@@ -45,6 +45,12 @@ pub trait Backend {
     fn features(&self) -> Vec<String> {
         Vec::new()
     }
+    /// The window's measured size and color scheme. Backends without real
+    /// windows return None; the session then reports the requested size with
+    /// the light color scheme, and treats a resize command as taking effect at once.
+    fn window_state(&mut self, _: &View) -> Option<WindowState> {
+        None
+    }
     fn automate(&mut self, _: &View, _: &AutomationRequest) -> Result<AutomationResult> {
         Err(error(
             ErrorCode::Unsupported,
@@ -55,8 +61,12 @@ pub trait Backend {
         Ok(())
     }
     fn command(&mut self, _: Option<&View>, command: &Command) -> Result<CommandResult> {
-        match command.kind {
+        match &command.kind {
             Some(command::Kind::Focus(_) | command::Kind::ScrollTo(_)) => {
+                Ok(CommandResult::default())
+            }
+            // Without a real window the session applies the requested size.
+            Some(command::Kind::Window(w)) if w.operation == WindowOperation::Resize as i32 => {
                 Ok(CommandResult::default())
             }
             _ => Err(error(
@@ -89,6 +99,9 @@ pub struct Session {
     closed: bool,
     resources: HashMap<u64, Resource>,
     models: HashMap<u64, (ModelState, HashSet<u64>)>,
+    // The last size and color scheme reported for each view, by entity ID.
+    viewports: HashMap<u64, Size>,
+    color_schemes: HashMap<u64, ColorScheme>,
 }
 
 impl Session {
@@ -101,13 +114,15 @@ impl Session {
             closed: false,
             resources: HashMap::new(),
             models: HashMap::new(),
+            viewports: HashMap::new(),
+            color_schemes: HashMap::new(),
         }
     }
 
     pub fn capabilities(&self) -> Capabilities {
         Capabilities {
             major: 1,
-            minor: 3,
+            minor: 4,
             session_id: self.id,
             features: [
                 "container",
@@ -131,6 +146,9 @@ impl Session {
                 "extended-style",
                 "animation",
                 "models",
+                "conditional-styles",
+                "window-size",
+                "window-color-scheme",
             ]
             .map(String::from)
             .to_vec(),
@@ -243,11 +261,23 @@ impl Session {
                 backend
                     .open(&view)
                     .map_err(|e| error(ErrorCode::Internal, e))?;
+                let state = backend
+                    .window_state(&view)
+                    .filter(|s| valid_viewport(&s.viewport) && valid_color_scheme(s.color_scheme))
+                    .unwrap_or_else(|| WindowState {
+                        viewport: view.options.size.clone().unwrap(),
+                        color_scheme: ColorScheme::Light,
+                    });
                 let opened = WindowOpened {
                     window: Some(view.window.clone()),
                     view: Some(view.entity.clone()),
                     revision: view.snapshot.revision,
+                    viewport: Some(state.viewport.clone()),
+                    color_scheme: state.color_scheme as i32,
                 };
+                self.viewports.insert(view.entity.id, state.viewport);
+                self.color_schemes
+                    .insert(view.entity.id, state.color_scheme);
                 self.views.insert(view.entity.id, view);
                 Ok(response::Body::WindowOpened(opened))
             }
@@ -300,13 +330,17 @@ impl Session {
                     view,
                     event::Kind::WindowClosed(WindowClosed::default()),
                 ));
-                self.views.remove(&view.entity.id.clone());
+                let id = view.entity.id;
+                self.views.remove(&id);
+                self.forget_state(id);
                 Ok(response::Body::Ack(Ack::default()))
             }
             request::Body::Quit(_) => {
                 backend.quit();
                 self.closed = true;
                 self.views.clear();
+                self.viewports.clear();
+                self.color_schemes.clear();
                 Ok(response::Body::Ack(Ack::default()))
             }
             request::Body::Command(command) => self
@@ -358,10 +392,59 @@ impl Session {
     pub fn window_closed(&mut self, window: &Handle) -> Option<Event> {
         let id = self.views.values().find(|v| v.window == *window)?.entity.id;
         let view = self.views.remove(&id)?;
+        self.forget_state(id);
         Some(Self::event(
             &view,
             event::Kind::WindowClosed(WindowClosed::default()),
         ))
+    }
+
+    fn forget_state(&mut self, id: u64) {
+        self.viewports.remove(&id);
+        self.color_schemes.remove(&id);
+    }
+
+    /// Records a window's drawable size, returning an event only when it
+    /// changed. Invalid or unknown-window reports are dropped.
+    pub fn window_resized(&mut self, window: &Handle, viewport: Size) -> Option<Event> {
+        if !valid_viewport(&viewport) {
+            return None;
+        }
+        let view = self.views.values().find(|v| v.window == *window)?;
+        if self.viewports.get(&view.entity.id) == Some(&viewport) {
+            return None;
+        }
+        let event = Self::event(
+            view,
+            event::Kind::WindowResized(WindowResized {
+                viewport: Some(viewport.clone()),
+            }),
+        );
+        self.viewports.insert(view.entity.id, viewport);
+        Some(event)
+    }
+
+    /// Records a window's color scheme, returning an event only when it changed.
+    pub fn color_scheme_changed(
+        &mut self,
+        window: &Handle,
+        color_scheme: ColorScheme,
+    ) -> Option<Event> {
+        if !valid_color_scheme(color_scheme) {
+            return None;
+        }
+        let view = self.views.values().find(|v| v.window == *window)?;
+        if self.color_schemes.get(&view.entity.id) == Some(&color_scheme) {
+            return None;
+        }
+        let event = Self::event(
+            view,
+            event::Kind::ColorSchemeChanged(ColorSchemeChanged {
+                color_scheme: color_scheme as i32,
+            }),
+        );
+        self.color_schemes.insert(view.entity.id, color_scheme);
+        Some(event)
     }
 
     /// Ignore input captured from an obsolete render tree. Handler IDs cannot
@@ -424,6 +507,66 @@ pub fn validate_snapshot(snapshot: &ViewSnapshot) -> Result<()> {
     validate_element(root, 1, &mut seen)
 }
 
+const MAX_CONDITIONAL_STYLES: usize = 32;
+
+/// A window's drawable size in logical pixels and its color scheme.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WindowState {
+    pub viewport: Size,
+    pub color_scheme: ColorScheme,
+}
+
+fn valid_viewport(size: &Size) -> bool {
+    size.width.is_finite() && size.height.is_finite() && size.width >= 0. && size.height >= 0.
+}
+
+fn valid_color_scheme(color_scheme: ColorScheme) -> bool {
+    matches!(color_scheme, ColorScheme::Light | ColorScheme::Dark)
+}
+
+/// Each refinement needs a condition and a style, and widths must describe a
+/// nonempty range of logical pixels.
+fn validate_conditional_styles(conditions: &[ConditionalStyle]) -> Result<()> {
+    if conditions.len() > MAX_CONDITIONAL_STYLES {
+        return Err(invalid("too many conditional styles"));
+    }
+    for condition in conditions {
+        for width in [condition.min_width, condition.max_width]
+            .into_iter()
+            .flatten()
+        {
+            if !width.is_finite() || !(0. ..=1_000_000.).contains(&width) {
+                return Err(invalid(
+                    "conditional widths must be finite and in [0, 1000000]",
+                ));
+            }
+        }
+        if let (Some(min), Some(max)) = (condition.min_width, condition.max_width)
+            && min >= max
+        {
+            return Err(invalid("conditional min_width must be below max_width"));
+        }
+        let color_scheme = ColorScheme::try_from(condition.color_scheme)
+            .map_err(|_| invalid("unknown conditional color scheme"))?;
+        if condition.min_width.is_none()
+            && condition.max_width.is_none()
+            && color_scheme == ColorScheme::Unspecified
+        {
+            return Err(invalid("conditional style has no condition"));
+        }
+        if condition.style.is_none() && condition.hover_style.is_none() {
+            return Err(invalid("conditional style has no style"));
+        }
+        for style in [&condition.style, &condition.hover_style]
+            .into_iter()
+            .flatten()
+        {
+            validate_style(style)?;
+        }
+    }
+    Ok(())
+}
+
 fn validate_element(element: &Element, depth: usize, seen: &mut HashSet<u64>) -> Result<()> {
     if depth > MAX_TREE_DEPTH {
         return Err(invalid("element tree exceeds depth limit"));
@@ -446,6 +589,7 @@ fn validate_element(element: &Element, depth: usize, seen: &mut HashSet<u64>) ->
     if let Some(style) = &element.hover_style {
         validate_style(style)?;
     }
+    validate_conditional_styles(&element.conditional_styles)?;
     match element
         .kind
         .as_ref()

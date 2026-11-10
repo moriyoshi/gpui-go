@@ -131,7 +131,8 @@ func (p *printer) Send(job gox.Job) error {
 func (p *printer) open(kind gox.HeadKind, tag string, attrs map[string]any) (*ui.Node, error) {
 	for name := range attrs {
 		switch name {
-		case "testid", "label", "role", "style", "onClick", "value", "placeholder", "disabled", "masked", "checked":
+		case "testid", "label", "role", "twClass", "style", "onClick", "value", "placeholder", "disabled", "masked", "checked",
+			"src", "commands", "rowHeight":
 		default:
 			return nil, fmt.Errorf("gox GPUI: unsupported attribute %q", name)
 		}
@@ -144,9 +145,53 @@ func (p *printer) open(kind gox.HeadKind, tag string, attrs map[string]any) (*ui
 		return p.document.Fragment(p.owner), nil
 	}
 	role := pb.AccessibleRole_ACCESSIBLE_ROLE_GENERIC
+	// Each tag-specific attribute belongs to exactly one tag.
+	for name, owner := range map[string]string{"src": "img", "commands": "canvas", "rowHeight": "uniform-list"} {
+		if _, ok := attrs[name]; ok && tag != owner {
+			return nil, fmt.Errorf("gox GPUI: %s requires %s", name, owner)
+		}
+	}
 	switch tag {
 	case "div", "span", "text":
 		node = p.document.Div(p.owner)
+	case "img":
+		switch src := attrs["src"].(type) {
+		case *clientlib.Resource:
+			node = p.document.Image(p.owner, src)
+		case func() *clientlib.Resource:
+			node = p.document.BindImage(p.owner, src)
+		default:
+			return nil, errors.New("gox GPUI: img src requires *client.Resource or an accessor")
+		}
+		role = pb.AccessibleRole_ACCESSIBLE_ROLE_IMAGE
+	case "canvas":
+		switch commands := attrs["commands"].(type) {
+		case nil:
+			node = p.document.Canvas(p.owner)
+		case []*scene.DrawCommand:
+			node = p.document.Canvas(p.owner, commands...)
+		case func() []*scene.DrawCommand:
+			node = p.document.BindCanvas(p.owner, commands)
+		default:
+			return nil, errors.New("gox GPUI: canvas commands require []*scene.DrawCommand or an accessor")
+		}
+	case "uniform-list":
+		var height float32
+		switch value := attrs["rowHeight"].(type) {
+		case float32:
+			height = value
+		case float64:
+			height = float32(value)
+		case int:
+			height = float32(value)
+		default:
+			return nil, errors.New("gox GPUI: uniform-list requires a numeric rowHeight")
+		}
+		if !(height >= 1 && height <= 16384) {
+			return nil, errors.New("gox GPUI: uniform-list rowHeight must be in [1, 16384]")
+		}
+		node = p.document.UniformList(p.owner, height)
+		role = pb.AccessibleRole_ACCESSIBLE_ROLE_LIST
 	case "button":
 		node = p.document.Div(p.owner).Focusable(0)
 		role = pb.AccessibleRole_ACCESSIBLE_ROLE_BUTTON
@@ -197,6 +242,16 @@ func (p *printer) open(kind gox.HeadKind, tag string, attrs map[string]any) (*ui
 			return nil, errors.New("gox GPUI: testid requires a string")
 		}
 		node.Name(name)
+	}
+	if value, ok := attrs["twClass"]; ok {
+		switch classes := value.(type) {
+		case string:
+			node.TWClass(classes)
+		case func() string:
+			node.BindTWClass(classes)
+		default:
+			return nil, errors.New("gox GPUI: twClass requires a string or an accessor")
+		}
 	}
 	if value, ok := attrs["style"]; ok {
 		switch style := value.(type) {

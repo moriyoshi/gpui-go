@@ -11,6 +11,7 @@ import (
 	pb "github.com/moriyoshi/gpui-go/gen/gpui/v1"
 	"github.com/moriyoshi/gpui-go/reactive"
 	"github.com/moriyoshi/gpui-go/scene"
+	"github.com/moriyoshi/gpui-go/tw"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -23,10 +24,15 @@ type Document struct {
 	nodes                              map[uint64]*Node
 	dirty, disposed, mounted, watching bool
 	err                                error
+	classes                            *tw.Compiler
+	windowSize                         *reactive.Signal[clientlib.WindowSize]
+	colorScheme                        *reactive.Signal[scene.ColorScheme]
 }
 
 func New(owner *reactive.Scope, client *clientlib.Client) *Document {
 	d := &Document{scope: owner.Child(), client: client, names: map[string]*Node{}, nodes: map[uint64]*Node{}}
+	d.windowSize = reactive.NewSignal(d.scope, clientlib.WindowSize{})
+	d.colorScheme = reactive.NewSignal(d.scope, scene.ColorSchemeUnspecified)
 	d.scope.OnCleanup(func() {
 		d.disposed = true
 		// An explicit owner can be elsewhere in this graph. Document teardown
@@ -38,7 +44,29 @@ func New(owner *reactive.Scope, client *clientlib.Client) *Document {
 	return d
 }
 func (d *Document) Scope() *reactive.Scope { return d.scope }
-func (d *Document) Err() error             { return d.err }
+
+// WindowSize returns the mounted window's drawable area. It is tracked like
+// a signal read, so bindings and Show conditions follow resizes. It is zero
+// before OpenWindow and on backends without the window-size capability.
+func (d *Document) WindowSize() clientlib.WindowSize { return d.windowSize.Get() }
+
+// ColorScheme returns whether the mounted window is drawn light or dark. It is
+// tracked separately from WindowSize, so a binding that reads only the color
+// scheme does not rerun on resizes. It is scene.ColorSchemeUnspecified before
+// OpenWindow and on backends without the window-color-scheme capability.
+func (d *Document) ColorScheme() scene.ColorScheme { return d.colorScheme.Get() }
+
+// UseTheme sets the compiler that Node.TWClass and BindTWClass use; the default is
+// Tailwind's default theme. Set it before building nodes: classes already
+// applied are not recompiled.
+func (d *Document) UseTheme(compiler *tw.Compiler) { d.classes = compiler }
+func (d *Document) compile(classes string) (*tw.Classes, error) {
+	if d.classes == nil {
+		return tw.Compile(classes)
+	}
+	return d.classes.Compile(classes)
+}
+func (d *Document) Err() error { return d.err }
 func (d *Document) Dispose() {
 	if !d.disposed {
 		d.disposed = true
@@ -157,14 +185,20 @@ func (d *Document) Snapshot(root *Node) (*scene.Node, error) {
 			return nil, errors.New("ui: tree exceeds protocol element limit")
 		}
 		value := proto.Clone(node.element).(*pb.Element)
+		var children *[]*pb.Element
 		if container := value.GetContainer(); container != nil {
-			container.Children = nil
+			children = &container.Children
+		} else if list := value.GetUniformList(); list != nil {
+			children = &list.Items
+		}
+		if children != nil {
+			*children = nil
 			for _, child := range node.children {
 				parts, err := walk(child, depth+1)
 				if err != nil {
 					return nil, err
 				}
-				container.Children = append(container.Children, parts...)
+				*children = append(*children, parts...)
 			}
 		}
 		return []*pb.Element{value}, nil
@@ -261,7 +295,23 @@ func (d *Document) OpenWindow(ctx context.Context, options clientlib.WindowOptio
 	}
 	d.mounted = true
 	stop := d.watch(root, snapshot.Proto(), func(next *scene.Node) error { return window.Set(ctx, next) })
-	return &Mount{Window: window, document: d, stop: stop}, nil
+	// Bindings that read the window state recompute now that the window
+	// exists, and the watch publishes the result like any other change.
+	size, _ := window.Size()
+	scheme, _ := window.ColorScheme()
+	if err := d.scope.Graph().Batch(func() error {
+		return errors.Join(d.windowSize.Set(size), d.colorScheme.Set(scheme))
+	}); err != nil {
+		stop()
+		return nil, errors.Join(err, window.Close(ctx))
+	}
+	unresize := window.OnResized(func(_ context.Context, size clientlib.WindowSize) error {
+		return d.windowSize.Set(size)
+	})
+	unscheme := window.OnColorSchemeChanged(func(_ context.Context, scheme scene.ColorScheme) error {
+		return d.colorScheme.Set(scheme)
+	})
+	return &Mount{Window: window, document: d, stop: func() { unresize(); unscheme(); stop() }}, nil
 }
 func (m *Mount) Close(ctx context.Context) error {
 	if m.closed {

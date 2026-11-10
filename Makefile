@@ -16,12 +16,17 @@ all: test
 tools:
 	GOBIN="$(CURDIR)/bin" $(GO) install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
 
-generate: tools generate-gox generate-nativeshim
+generate: tools generate-gox generate-nativeshim generate-tw
 	$(PROTOC) -I proto --plugin=protoc-gen-go=bin/protoc-gen-go --go_out=. --go_opt=module=github.com/moriyoshi/gpui-go $(PROTO_FILES)
 
 .PHONY: generate-nativeshim
 generate-nativeshim:
 	$(GO) generate ./internal/nativeshim
+
+# The first run downloads the pinned, checksum-verified tailwindcss tarball into .cache/.
+.PHONY: generate-tw
+generate-tw:
+	$(GO) generate ./tw
 
 .PHONY: gox-tools generate-gox generate-reactive fmt-reactive check-reactive-generated generate-counter-gox fmt-counter-gox generate-docshots-gox fmt-docshots-gox check-gox-generated test-gox-tools
 gox-tools:
@@ -220,14 +225,14 @@ test-e2e-native:
 	$(CARGO) test --locked --manifest-path rust/native/Cargo.toml --features automation --lib
 
 fmt: fmt-reactive fmt-counter-gox fmt-docshots-gox
-	gofmt -w *.go scene/*.go client/*.go host/*.go internal/nativeshim/*.go editor/*.go uitest/*.go uitest/gpui/*.go uitest/starlark/*.go reactive/*.go ui/*.go ui/gox/*.go e2e/*.go cmd/gpui-e2e/*.go examples/counter/*.go examples/counter-gox/*.go examples/counter-gox/app/*.go examples/showcase/*.go examples/editor/*.go examples/features/*.go examples/e2eapp/*.go examples/uitest/*.go examples/reactive/*.go examples/reactiveapp/*.go
+	gofmt -w *.go scene/*.go client/*.go host/*.go internal/nativeshim/*.go editor/*.go uitest/*.go uitest/gpui/*.go uitest/starlark/*.go reactive/*.go tw/*.go ui/*.go ui/gox/*.go e2e/*.go cmd/gpui-e2e/*.go examples/counter/*.go examples/counter-gox/*.go examples/counter-gox/app/*.go examples/showcase/*.go examples/editor/*.go examples/features/*.go examples/e2eapp/*.go examples/uitest/*.go examples/reactive/*.go examples/reactiveapp/*.go
 	$(CARGO) fmt --manifest-path rust/core/Cargo.toml
 	$(CARGO) fmt --manifest-path rust/runtime/Cargo.toml
 	$(CARGO) fmt --manifest-path rust/native/Cargo.toml
 	$(CARGO) fmt --manifest-path rust/zed-editor/Cargo.toml --all
 
 check-generated: generate
-	git diff --exit-code -- gen/ examples/reactiveapp/view.x.go examples/counter-gox/app/view.x.go
+	git diff --exit-code -- gen/ tw/theme_gen.go tw/LICENSE-tailwindcss examples/reactiveapp/view.x.go examples/counter-gox/app/view.x.go
 
 harness-check:
 	PYTHONDONTWRITEBYTECODE=1 python3 .agents/scripts/check_harness.py

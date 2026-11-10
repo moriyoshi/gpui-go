@@ -12,7 +12,7 @@ It can upload them to a draft GitHub Release with per-asset checksums and a comb
 
 `native-targets.json` is the single list of targets and the module prefix. The workflow matrix, asset names, the generated function table in [internal/nativeshim](../internal/nativeshim) and the registration packages under [prebuilt](../prebuilt) all derive from it. After changing it, run `make generate-nativeshim`; a default `go test` fails if the generated files are stale.
 
-`modulePrefix` is `gpui-go.dev/__binary`, and each module path appends `<goos>/<goarch>`, as in `gpui-go.dev/__binary/darwin/arm64`. Consumers import the registration packages, not these modules. The release job refuses a placeholder prefix when `create_draft` is true.
+`modulePrefix` is `gpui-go.dev/__binary`, and each module path appends `<goos>/<goarch>`, as in `gpui-go.dev/__binary/darwin/arm64`. Consumers never import these modules directly; `host` reaches them through the registration packages. The release job refuses a placeholder prefix when `create_draft` is true.
 
 | Target | Rust target | Library | Status |
 | --- | --- | --- | --- |
@@ -40,7 +40,7 @@ Run `Prepare native release` manually from GitHub Actions, selecting a source re
 | --- | --- |
 | `version` | Canonical native module version, initially `v0.x.y` or `v1.x.y`, optionally a prerelease |
 | `targets` | `all`, or a comma-separated subset such as `darwin/arm64,linux/amd64` |
-| `bao_revision` | Exact 40-character commit in `moriyoshi/bao`; defaults to v0.0.2's `4ca57fab0ddfd368c8ea89b83bf355682671ee27` |
+| `bao_revision` | Exact 40-character commit in `moriyoshi/bao`; defaults to v0.0.3's `e05f1cfb2d2054457067f3268908992ca9b1df2c` |
 | `create_draft` | Defaults to false, retaining Actions artifacts only; true creates a new draft Release |
 
 The workflow pins third-party Actions to commit hashes, disables persisted checkout credentials, and gives only the release job permission to write releases. It never replaces an existing release or uses `latest` as a producer pin. Publication scripts check that the running Go version and Bao's verified linker profile are Go 1.26.10 and that Bao reports the selected commit. The shared pin is in `metadata-proxy/scripts/profile.ts`.
@@ -54,9 +54,9 @@ Jobs and their scripts, each under `dist/metadata-proxy`:
 | `syso-and-module` | `release:syso` | `-syso.zip` of the generated package |
 | `syso-and-module` | `release:module` | Go module ZIP, publication record, release metadata |
 | `syso-and-module` | `release:smoke` | Module download, checks and execution; host run through the shim |
-| `release` | `release:collect` | `SHA256SUMS`, release notes, catalog candidate; optional draft |
+| `release` | `release:collect` | `SHA256SUMS`, release notes and a check of every target's metadata; optional draft |
 
-`release:smoke` downloads the actual ZIP through a local Go file proxy into a fresh module cache, runs `go mod verify`, and builds with `CGO_ENABLED=0` and unavailable C/C++/Rust compiler paths. It runs the [native initialization smoke](native-smoke/main.go.tmpl) at GOMAXPROCS 1 and 4, and on macOS signs the consumer ad hoc with Hardened Runtime and runs it again. Published libraries are built with the Rust `automation` feature. The smoke links `examples/uitest` with `-tags gpui,gpui_prebuilt,gpui_e2e` on every target and runs it on Linux, where GPUI needs no display. It also builds `examples/counter` with `-tags gpui,gpui_prebuilt,gpui_headless` against the same module and runs its headless smoke through `internal/nativeshim`. Apart from that Linux run it does not verify a native window loop or input, and nowhere does it verify rendered pixels or complete background TLS drainage.
+`release:smoke` downloads the actual ZIP through a local Go file proxy into a fresh module cache, runs `go mod verify`, and builds with `CGO_ENABLED=0` and unavailable C/C++/Rust compiler paths. It runs the [native initialization smoke](native-smoke/main.go.tmpl) at GOMAXPROCS 1 and 4, and on macOS signs the consumer ad hoc with Hardened Runtime and runs it again. Published libraries are built with the Rust `automation` feature. The smoke links `examples/uitest` with `-tags gpui_prebuilt,gpui_e2e` on every target and runs it on Linux, where GPUI needs no display. It also builds `examples/counter` with `-tags gpui_prebuilt,gpui_headless` against the same module and runs its headless smoke through `internal/nativeshim`. Apart from that Linux run it does not verify a native window loop or input, and nowhere does it verify rendered pixels or complete background TLS drainage.
 
 The local file-proxy check disables the public checksum database only inside its subprocess environment, and only for the unpublished module, because that module cannot be in the database yet. Keep checksum verification enabled for production consumers.
 
@@ -75,25 +75,25 @@ native-release-<goos>-<goarch>.json
 
 Each of the first three has a `.sha256` sidecar. `SHA256SUMS` lists every asset other than the sidecars and is checked with `sha256sum --check --strict` before the draft is created; the release job also refuses sidecars that disagree with it. Checksums detect corruption and substitution after the fact; they are not signatures.
 
-The metadata JSON contains the module path, exact original `go.mod`, fixed publication time, GitHub asset mapping, ZIP size and SHA-256. The module ZIP includes Bao's binding declarations/provenance and a `publication.json` recording the source commit, Bao commit/executable hash, library hash and toolchain versions. These records describe the producer's build; they do not independently prove provenance or source correspondence.
+The metadata JSON contains the module path, exact original `go.mod`, fixed publication time, GitHub asset mapping, ZIP size and SHA-256. The Worker reads it back from the published release to serve the version, so it is part of the published module's identity and must never be replaced. The module ZIP includes Bao's binding declarations/provenance and a `publication.json` recording the source commit, Bao commit/executable hash, library hash and toolchain versions. These records describe the producer's build; they do not independently prove provenance or source correspondence.
 
-Bao's build log and native execution logs are retained in a separate `native-evidence-*` artifact, and `native-release-<version>` holds the candidate with its catalog and notes. The Worker catalog stays empty until an actual candidate is approved and its metadata applied.
+Bao's build log and native execution logs are retained in a separate `native-evidence-*` artifact, and `native-release-<version>` holds the candidate with its notes. Nothing reaches the Worker until the release is published.
 
 ## Consume through the shim
 
-`internal/nativeshim` exposes one function set to `host`. With `-tags gpui` it links a locally built Rust archive through cgo, as the Makefile targets do. With `-tags gpui,gpui_prebuilt` and `CGO_ENABLED=0` it forwards each call through a table that a registration package fills. `github.com/moriyoshi/gpui-go/prebuilt/<goos>/<goarch>` imports that target's module and registers it from `init`; its registration file is constrained to the target, so the package is empty elsewhere. `github.com/moriyoshi/gpui-go/prebuilt` imports all six, which the repository's examples use.
+`internal/nativeshim` exposes one function set to `host`. With `-tags gpui` it links a locally built Rust archive through cgo, as the Makefile targets do. With `-tags gpui_prebuilt` and `CGO_ENABLED=0` it forwards each call through a table that a registration package fills. `github.com/moriyoshi/gpui-go/prebuilt/<goos>/<goarch>` imports that target's module and registers it from `init`; its registration file is constrained to the target, so the package is empty elsewhere. `github.com/moriyoshi/gpui-go/prebuilt` imports all six, and `host` imports it in a file constrained to `gpui_prebuilt`, so the tags alone select the module. The shim cannot import the registration packages itself, because they import the shim.
 
-`go mod tidy` and `go get` load imports as if every build tag were set, so each module reachable through an import is downloaded. The shim imports none, so a source-build consumer downloads no native module, a consumer importing one platform package downloads one, and one importing `prebuilt` downloads all six. An ordinary `go build` downloads only the current target's module in every case. A prebuilt build without a registration import compiles, and `host.Run` returns an error naming the package to import.
+`go mod tidy` and `go get` load imports as if every build tag were set, so any consumer that imports `host` downloads all six modules on tidy, including source-build consumers. This is the cost of not asking programs for a platform-specific import. An ordinary `go build` downloads only the current target's module. On a GOOS/GOARCH without a module, a prebuilt build compiles and `host.Run` returns an error.
 
-Those modules are not in the root `go.mod` yet, because no version has been published and the required Go version would rise to the Bao profile's 1.26.10. Until then, building the `prebuilt` packages in this repository needs a `-modfile` that requires them, as `release:smoke` does. After the first release, add the published modules to `go.mod`.
+The root `go.mod` requires all six modules, which raises the repository's Go version to the Bao profile's 1.26.10. A consumer gets the native version that its gpui-go version requires, not whatever is latest. After publishing a release, update the requirements with `go get gpui-go.dev/__binary/<goos>/<goarch>@<version>` for each target. `release:smoke` overrides the requirement for the module it builds with a `-modfile`, because the new version is not resolvable before publication.
 
 ## Sign and publish
 
 The workflow intentionally creates drafts so the existing independent signing design can be completed before an immutable release is published. No publisher key is stored in this repository or generated by the workflow. On a separately trusted producer/signing environment, inspect the candidate, extract the Go module ZIP without changing its contents, and use the independently obtained Bao CLI:
 
 ```sh
-bao sign -root /reviewed/native.example.org/gpui/darwin-arm64@v0.1.0 \
-  -module native.example.org/gpui/darwin-arm64 \
+bao sign -root /reviewed/gpui-go.dev/__binary/darwin/arm64@v0.1.0 \
+  -module gpui-go.dev/__binary/darwin/arm64 \
   -target darwin/arm64 -release v0.1.0 \
   -key /secure/release-key.pem -o /release/bao-release-darwin-arm64.json
 ```
@@ -102,14 +102,14 @@ Replace the example module/version/paths with the actual candidate. Keep the env
 
 Before finalizing the draft, review the actual native dependency and embedded-asset license obligations and include the remaining required texts/notices. The current preparation includes known project/GPUI/Bao/bootstrap notices and raw Cargo metadata, not a completed transitive notice bundle or license audit. If module contents change during this review, regenerate the ZIP, SHA-256 and metadata before signing. Draft replacement is a deliberate manual operation; the workflow refuses to overwrite release assets automatically.
 
-Upload the independently signed envelope to the draft and finish artifact review before publishing with GitHub immutable releases enabled. Immutable releases cannot be extended with new signing assets afterward. The publication workflow does not itself finalize a draft or deploy the Worker.
+Upload the independently signed envelope to the draft and finish artifact review before publishing with GitHub immutable releases enabled. Immutable releases cannot be extended with new signing assets afterward. The publication workflow does not itself finalize a draft.
 
-## Activate metadata
+## Advertise the release
 
-Publishing a Release runs [Activate native release](../.github/workflows/activate-native-release.yml). It verifies the release metadata against `SHA256SUMS`, merges it into `catalog.ts` and opens a pull request. Merging that pull request runs [Deploy metadata proxy](../.github/workflows/deploy-metadata-proxy.yml), which deploys the Worker and checks the live routes and release assets. Releases without native module metadata are ignored, and `Activate native release` can also be dispatched for an existing tag.
+Publishing a Release runs [Deploy metadata proxy](../.github/workflows/deploy-metadata-proxy.yml). It picks Go's `@latest` among the published releases, checks that every target's metadata and ZIP are downloadable, deploys the Worker with `NATIVE_VERSION` set to that version and checks the live routes. Nothing is committed and no pull request is opened. Publishing a prerelease while a stable release exists leaves `@latest` on the stable one, but the prerelease still resolves when requested by version. To roll `@latest` back or forward, dispatch the workflow with `version`.
 
-Do not advertise draft assets: unauthenticated Go clients cannot download them. Test the public Go mirror and checksum database with an empty consumer cache before advertising a version, because the deployment check covers the Worker and GitHub only. See the [Worker guide](metadata-proxy/README.md#continuous-deployment) for setup.
+Draft assets are never advertised, because unauthenticated clients, the Worker included, cannot download them. Test the public Go mirror and checksum database with an empty consumer cache before advertising a version, because the deployment check covers the Worker and GitHub only. See the [Worker guide](metadata-proxy/README.md#continuous-deployment) for setup.
 
 Plain `go get` obtains the ZIP and Go checksum authentication. Additional Bao signature verification remains explicitly consumer-controlled and is not invoked automatically by Go. Its current restrictive `verified-build` profile has no `-tags` option, so verification of GPUI's existing tagged host build remains pending. The generated native module itself needs no GPUI build tags.
 
-One module ZIP always has the same contents for its module/version. Per-target modules keep downloads target-only as long as the consumer imports only the matching registration packages.
+One module ZIP always has the same contents for its module/version. Per-target modules keep an ordinary `go build` to one download, while `go mod tidy` and `go get` fetch every target.

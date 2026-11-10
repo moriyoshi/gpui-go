@@ -109,7 +109,7 @@ func TestRegistrationsUseOwnTarget(t *testing.T) {
 		}
 		text := string(source)
 		goos, goarch, _ := strings.Cut(target.Go, "/")
-		if !strings.Contains(text, "//go:build gpui && gpui_prebuilt && "+goos+" && "+goarch+"\n") {
+		if !strings.Contains(text, "//go:build gpui_prebuilt && "+goos+" && "+goarch+"\n") {
 			t.Errorf("%s is not constrained to %s", path, target.Go)
 		}
 		if !strings.Contains(text, `native "`+table.ModulePrefix+"/"+target.Go+`"`) {

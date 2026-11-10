@@ -23,6 +23,7 @@ The module separates snapshot construction, protocol clients and native startup:
 | [host](host/README.md) | Standalone Run, Sable lifecycle, process main thread and desktop/headless loop |
 | [reactive](reactive/README.md) | Signals, memos, effects, batching and owner scopes |
 | [ui](ui/README.md), [ui/gox](ui/gox/README.md) | Persistent reactive nodes and the typed GoX construction adapter |
+| [tw](tw/README.md) | Tailwind CSS v4 style utility lists compiled to native styles |
 | [uitest](uitest/README.md) | Shared Page/Locator/expect, target contracts, scenario lifecycle and worker reports |
 | [uitest/gpui](uitest/gpui/README.md) | Concrete GPUI driver and application factory contracts |
 | [uitest/starlark](uitest/starlark/README.md) | Starlark evaluation, builtins and source diagnostics |
@@ -40,7 +41,7 @@ These are Go package changes within one module. Protobuf schemas, generated path
 
 ## Run
 
-Install Go 1.26.5, Rust 1.99.1, and `protoc` 35.1. macOS native builds also need Apple's command line tools. Dependencies are fetched by Go and Cargo; a network-enabled first build is required.
+Install Go 1.26.10, Rust 1.99.1, and `protoc` 35.1. macOS native builds also need Apple's command line tools. Dependencies are fetched by Go and Cargo; a network-enabled first build is required.
 
 The native crate enables GPUI's runtime shader compilation by default, so the optional Xcode Metal compiler is not required. Metal shaders compile through the GPU driver when the application opens its first window. Building the native crate with Cargo's `--no-default-features` uses precompiled shaders instead and requires the Metal toolchain.
 
@@ -142,7 +143,7 @@ make uitest              # build/run the Go-only shared-package consumer
 ./bin/gpui-e2e --timeout 45s e2e/scenarios/text-input.star
 ```
 
-Automation requires both the Rust `automation` feature and Go `gpui_e2e` tag; ordinary local builds reject it. Published prebuilt modules include the feature, so `-tags gpui,gpui_prebuilt,gpui_e2e` and the platform's `prebuilt` import are enough. The harness drains event barriers, cleans up each file and requires an atomic completion report from its native worker before reporting success. Failures include Starlark source backtraces and exit nonzero. Reports are retained under `.agents-workspace/tmp/`.
+Automation requires both the Rust `automation` feature and Go `gpui_e2e` tag; ordinary local builds reject it. Published prebuilt modules include the feature, so `-tags gpui_prebuilt,gpui_e2e` is enough. The harness drains event barriers, cleans up each file and requires an atomic completion report from its native worker before reporting success. Failures include Starlark source backtraces and exit nonzero. Reports are retained under `.agents-workspace/tmp/`.
 
 Inputs are synthesized inside GPUI in a native graphical process. Composition calls the native text-service interface; it does not drive an installed OS IME. Screen-reader output and pixels are not asserted. The clipboard scenario changes the actual clipboard and restores its previous text, without preserving rich clipboard formats. See the [harness guide](e2e/README.md) for selecting scenarios and adding application fixtures.
 
@@ -241,7 +242,7 @@ Resources must be released after all referencing views are closed or replaced. E
 
 ## Coverage
 
-Protocol minor 3 retains the window/snapshot/event operations and adds `Command` for resources, models, actions, focus, scrolling and platform services. Capabilities explicitly advertise `resources`, `drawing`, `uniform-list`, `interaction`, `actions`, `focus`, `accessibility`, `extended-style`, `animation`, and `models`. The native backend additionally advertises `platform-services`, `menus`, and `path-prompts`; headless execution rejects OS services. Event batches are bounded by both count and encoded size.
+Protocol minor 4 retains the window/snapshot/event operations and `Command` for resources, models, actions, focus, scrolling and platform services, and adds natively evaluated conditional styles and window size and color scheme reporting. Capabilities explicitly advertise `resources`, `drawing`, `uniform-list`, `interaction`, `actions`, `focus`, `accessibility`, `extended-style`, `animation`, `models`, `conditional-styles`, `window-size`, and `window-color-scheme`. The native backend additionally advertises `platform-services`, `menus`, and `path-prompts`; headless execution rejects OS services. Event batches are bounded by both count and encoded size.
 
 The supported element set is containers, text, persistent single-line text inputs, uploaded images/SVG, canvases, and uniform-height virtual lists. This covers the bridge's core serializable primitives. It does not expose every Rust GPUI method: arbitrary Rust contexts/closures/`Render` implementations, custom GPU shaders, variable-height or paged lists, styled text runs, and snapshot patches remain outside the current contract. Animation currently covers opacity. Generic inputs still lack undo/redo and multiline editing. The separate GPL editor remains opt-in and is not embedded in generic snapshots.
 
@@ -249,9 +250,9 @@ Native tests exercise GPUI focus/key/action dispatch, chords, pointer hitboxes, 
 
 ## Development
 
-The [native module metadata proxy](dist/metadata-proxy/README.md) is a Cloudflare Worker for serving Go module metadata and redirecting module ZIP downloads to GitHub Releases. It also serves the site built from [docs/](docs/index.md) on the same domain. Its release catalog starts empty.
+The [native module metadata proxy](dist/metadata-proxy/README.md) is a Cloudflare Worker for serving Go module metadata and redirecting module ZIP downloads to GitHub Releases. It also serves the site built from [docs/](docs/index.md) on the same domain. It reads each version's metadata from the release itself, so publishing a release is the only step needed to advertise it.
 
-The [native publication guide](dist/README.md) describes the manually dispatched workflow that builds per-platform static libraries, Bao `.syso` packages and Go module ZIPs, with checksums, a draft Release and a Worker catalog candidate. Publishing and catalog deployment remain explicit later steps. No native module has been published yet, so `-tags gpui,gpui_prebuilt` builds need a first release before they can resolve.
+The [native publication guide](dist/README.md) describes the manually dispatched workflow that builds per-platform static libraries, Bao `.syso` packages and Go module ZIPs, with checksums and a draft Release. Publishing the release is an explicit later step, and it deploys the Worker. With `-tags gpui_prebuilt` and `CGO_ENABLED=0`, a program uses the published module for its target; see [Prebuilt modules](docs/guide/prebuilt-modules.md).
 
 Coding-agent guidance starts in [AGENTS.md](AGENTS.md), with the subsystem map in [ARCHITECTURE.md](ARCHITECTURE.md). The [agent harness guide](.agents/docs/HARNESS.md) records the adopted Cornus/yesnodb conventions and maintenance skills. Run `make harness-check` after editing that harness.
 

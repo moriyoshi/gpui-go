@@ -12,3 +12,8 @@ license identifies Copyright 2022 - 2025 Zed Industries, Inc.
 
 This adaptation adds bridge events, versioned Go snapshot synchronization,
 disabled fields, input size limits, and horizontal caret scrolling.
+
+The default theme tables in tw/theme_gen.go are generated from the theme of
+Tailwind CSS v4.3.5 (https://github.com/tailwindlabs/tailwindcss), Copyright (c)
+Tailwind Labs, Inc., distributed under the MIT License, whose text is retained
+in tw/LICENSE-tailwindcss.

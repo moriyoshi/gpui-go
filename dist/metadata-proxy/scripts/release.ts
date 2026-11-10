@@ -4,23 +4,18 @@ import { lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { zipSync } from "fflate";
-import { createWorker } from "../worker.ts";
-import type { ModuleEntry } from "../types.ts";
-import { nativeTarget, targetSlug } from "./targets.ts";
+import { metadataAssetName, releaseAssetName as assetName, validateRelease } from "../worker.ts";
+import type { ModuleEntry, ReleaseMetadata } from "../types.ts";
+import { nativeTarget } from "./targets.ts";
+
+export type { ReleaseMetadata };
 
 const MAX_ZIP = 500 * 1024 * 1024;
 const MAX_METADATA = 16 * 1024 * 1024;
 
 export function releaseAssetName(version: string, target: string): string {
   nativeTarget(target);
-  return `gpui-native-${version}-${targetSlug(target)}.zip`;
-}
-
-export interface ReleaseMetadata {
-  schema: 1;
-  target: string;
-  entry: ModuleEntry;
-  zip: { name: string; sha256: string; size: number };
+  return assetName(version, target);
 }
 
 export interface PackageOptions {
@@ -45,7 +40,10 @@ export async function packageRelease(options: PackageOptions): Promise<ReleaseMe
     repository,
     versions: { [version]: { time, tag: version, asset: name, goMod } },
   };
-  createWorker([entry]); // Validate against the actual distribution service.
+  // Validate exactly as the Worker will when it reads the metadata back.
+  if (!options.module.endsWith(`/${target}`)) throw new Error(`Module path must end in /${target}`);
+  validateRelease({ modulePrefix: options.module.slice(0, -target.length - 1), repository, targets: [{ go: target }] },
+    target, version, { schema: 1, target, entry });
   if (!(await lstat(root)).isDirectory() || resolve(out).startsWith(resolve(root) + "/")) {
     throw new Error("Module root must be a directory and output must be outside it");
   }
@@ -98,7 +96,7 @@ export async function packageRelease(options: PackageOptions): Promise<ReleaseMe
   };
   await mkdir(out, { recursive: true }); // Stages share assets; "wx" below refuses to overwrite.
   await writeFile(join(out, name), bytes, { flag: "wx" });
-  await writeFile(join(out, `native-release-${target.replace("/", "-")}.json`), JSON.stringify(metadata, null, 2) + "\n", { flag: "wx" });
+  await writeFile(join(out, metadataAssetName(target)), JSON.stringify(metadata, null, 2) + "\n", { flag: "wx" });
   await writeChecksum(out, name);
   return metadata;
 }

@@ -1,6 +1,6 @@
 # Build and validation
 
-Toolchains: Go 1.26.5, Rust 1.99.1, protoc 35.1; the Makefile pins protoc-gen-go. Core/runtime/native are independent Cargo projects. Only the editor component/host share a workspace. Use explicit manifests and locked builds.
+Toolchains: Go 1.26.10, Rust 1.99.1, protoc 35.1; the Makefile pins protoc-gen-go. Core/runtime/native are independent Cargo projects. Only the editor component/host share a workspace. Use explicit manifests and locked builds.
 
 Existing build/cache directories are deliberate: bin/, target/, .cache/. The editor shares target/zed-editor with debug info disabled. Do not mint a target directory per session. Scratch output belongs in .agents-workspace/tmp/.
 

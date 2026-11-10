@@ -48,6 +48,8 @@ Read the payload with the getter matching the kind. Getters for other kinds retu
 
 *One handler receiving three actions sent with `Window.DispatchAction`, reading `ElementId` and `GetAction()`.*
 
+Window resizes and color scheme changes are not delivered to handlers. `Dispatch` routes them to the window's own callbacks instead; see [Window size and color scheme](./window-state).
+
 ## Handling several kinds
 
 ```go

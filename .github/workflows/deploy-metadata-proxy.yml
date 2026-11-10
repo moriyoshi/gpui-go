@@ -6,14 +6,22 @@ on:
     paths:
       - docs/**
       - dist/native-targets.json
-      - dist/metadata-proxy/catalog.ts
       - dist/metadata-proxy/types.ts
       - dist/metadata-proxy/worker.ts
       - dist/metadata-proxy/wrangler.jsonc
       - dist/metadata-proxy/deploy/**
       - dist/metadata-proxy/scripts/check-deployment.ts
+      - dist/metadata-proxy/scripts/select-release.ts
       - .github/workflows/deploy-metadata-proxy.yml
+  # Publishing a release is the approval that advertises it.
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release to advertise as latest (default is Go's @latest among published releases)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -35,6 +43,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # A release event points at its tag; the Worker always deploys from the default branch.
+          ref: ${{ github.event_name == 'release' && github.event.repository.default_branch || github.ref }}
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -44,7 +54,7 @@ jobs:
             dist/metadata-proxy/package-lock.json
             dist/metadata-proxy/deploy/package-lock.json
             docs/package-lock.json
-      - name: Check the Worker and catalog
+      - name: Check the Worker
         run: |
           npm ci --ignore-scripts
           npm run check
@@ -65,13 +75,31 @@ jobs:
           if [[ -z "$domain" ]]; then
             echo "::notice::modulePrefix is still a placeholder; skipping deployment"
           fi
+      - id: release
+        name: Select the advertised release and check its assets
+        if: steps.domain.outputs.domain != ''
+        run: |
+          set -euo pipefail
+          if [[ -n "$VERSION" ]]; then
+            version="$(npm run --silent release:select -- "$VERSION")"
+          else
+            version="$(gh release list --exclude-drafts --limit 1000 --json tagName --jq '.[].tagName' | npm run --silent release:select)"
+          fi
+          echo "::notice::Advertising $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
       - name: Deploy
         if: steps.domain.outputs.domain != ''
-        run: deploy/node_modules/.bin/wrangler deploy --domain "$DOMAIN"
+        run: deploy/node_modules/.bin/wrangler deploy --domain "$DOMAIN" --var "NATIVE_VERSION:$NATIVE_VERSION"
         env:
           DOMAIN: ${{ steps.domain.outputs.domain }}
+          NATIVE_VERSION: ${{ steps.release.outputs.version }}
       - name: Check the deployed routes and release assets
         if: steps.domain.outputs.domain != ''
-        run: npm run --silent release:check-deployment -- "https://$DOMAIN"
+        run: npm run --silent release:check-deployment -- "https://$DOMAIN" "$NATIVE_VERSION"
         env:
           DOMAIN: ${{ steps.domain.outputs.domain }}
+          NATIVE_VERSION: ${{ steps.release.outputs.version }}

@@ -51,4 +51,4 @@ Virtualization covers layout and painting, not data transfer. Go sends every row
 
 ## Available in other APIs
 
-Uniform list is only available through `scene`. For keyed rows that are not virtualized, use [`ui.For`](./reactive-nodes#for).
+In a [`ui` application](./reactive-nodes#uniformlist), use `Document.UniformList` with [`ui.For`](./reactive-nodes#for) rows, which keep their element IDs when reordered. In a GoX template, use the [`uniform-list` tag](./gox-tags#image-canvas-and-uniform-list).

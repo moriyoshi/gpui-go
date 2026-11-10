@@ -59,6 +59,60 @@ field := document.Input(owner, name, ui.InputOptions{Placeholder: "Your name"})
 
 *A signal bound to the field and to a `BindText` preview, after setting the signal from Go.*
 
+## Image
+
+```text
+func (d *Document) Image(owner *reactive.Scope, resource *client.Resource) *Node
+func (d *Document) BindImage(owner *reactive.Scope, read func() *client.Resource) *Node
+```
+
+An [image](./image) of an uploaded resource. `BindImage` switches resources when a signal it reads changes, and returning nil fails the computation. Keep each resource uploaded while a mounted node shows it.
+
+```go
+logo, err := app.UploadResource(ctx, client.ResourceImage, "image/png", pngBytes)
+if err != nil {
+	return err
+}
+image := document.Image(owner, logo).TWClass("size-16")
+```
+
+## Canvas
+
+```text
+func (d *Document) Canvas(owner *reactive.Scope, commands ...*scene.DrawCommand) *Node
+func (d *Document) BindCanvas(owner *reactive.Scope, read func() []*scene.DrawCommand) *Node
+```
+
+A [canvas](./canvas). Commands are copied. `BindCanvas` repaints when a signal it reads changes, and publishes nothing when the commands are unchanged. A canvas has no children; give it a size.
+
+```go
+meter := document.BindCanvas(owner, func() []*scene.DrawCommand {
+	return []*scene.DrawCommand{{Kind: &scene.DrawCommandRect{Rect: &scene.DrawRect{
+		Bounds: &scene.Bounds{Origin: &scene.Point{}, Size: &scene.Size{Width: level.Get() * 2, Height: 8}},
+		Fill:   scene.RGB(0x3b82f6),
+	}}}}
+}).TWClass("w-50 h-2")
+```
+
+## UniformList
+
+```text
+func (d *Document) UniformList(owner *reactive.Scope, rowHeight float32, rows ...*Node) *Node
+```
+
+A virtualized [uniform list](./uniform-list) with rows `rowHeight` logical pixels tall, from 1 to 16384. Its children are managed like a `Div`'s, so `For` and `Show` can supply rows, and each element they produce is one row. Keyed rows keep their element IDs when reordered. Give the list a definite height. To scroll it, call `mount.Window.ScrollTo(ctx, list.ID(), row)`.
+
+```go
+list := document.UniformList(owner, 28, ui.For(document, owner, tasks.Get,
+	func(task Task) int { return task.ID },
+	func(scope *reactive.Scope, task *reactive.Signal[Task], _ *reactive.Signal[int]) *ui.Node {
+		return document.BindText(scope, func() string { return task.Get().Title }).TWClass("px-2")
+	},
+)).TWClass("h-64")
+```
+
+Every row is sent in every snapshot, so the [element limits](./#rules-for-every-snapshot) still apply.
+
 ## Fragment
 
 ```text
@@ -122,6 +176,9 @@ rows := ui.For(document, owner, tasks.Get,
 | --- | --- |
 | `Style(style)` | Sets the style |
 | `BindStyle(read)` | Sets the style from a function that may read signals |
+| `Hover(style)` | Sets a partial style that GPUI applies while the pointer is over the node |
+| `TWClass(list)` | Sets [utility styles](/guide/utility-styles), including `hover:` utilities. `Style` and `Hover` refine them |
+| `BindTWClass(read)` | Sets utility styles from a function that may read signals |
 | `Accessible(label, metadata)` | Sets accessibility metadata |
 | `BindAccessibility(label, read)` | Sets accessibility metadata from a function that may read signals |
 | `Focusable(index)` | Makes the node focusable |
@@ -131,7 +188,31 @@ rows := ui.For(document, owner, tasks.Get,
 | `Scope()` | Returns the node's owner scope |
 | `Dispose()` | Disposes the node, its descendants, computations and handlers |
 
-`Hover`, `Interact`, `BindKey`, `Animate`, images, canvases and uniform lists are not available on `ui` nodes. Use the [`scene` API](./) when you need them.
+`Interact`, `BindKey`, `Animate` and embedded views are not available on `ui` nodes. Use the [`scene` API](./) when you need them.
+
+## Window size and color scheme
+
+```text
+func (d *Document) WindowSize() client.WindowSize
+func (d *Document) ColorScheme() scene.ColorScheme
+```
+
+The mounted window's [size and color scheme](./window-state). Reading either inside a binding or a `Show` condition tracks it like a signal. They are tracked separately, so a binding that reads only `ColorScheme` does not rerun when the window is resized. Before `OpenWindow`, and on a backend without the capability, `WindowSize` is zero and `ColorScheme` is `scene.ColorSchemeUnspecified`.
+
+```go
+layout := document.Show(owner,
+	func() bool { return document.WindowSize().Width >= 768 },
+	wideLayout, narrowLayout,
+)
+icon := document.BindImage(owner, func() *client.Resource {
+	if document.ColorScheme() == scene.ColorSchemeDark {
+		return lightLogo
+	}
+	return darkLogo
+})
+```
+
+For styles alone, prefer [`md:` and `dark:` utilities](/guide/utility-styles#responsive-and-dark-styles), which GPUI evaluates natively without a round trip through Go.
 
 ## Mounting
 

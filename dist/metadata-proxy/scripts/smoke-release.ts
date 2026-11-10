@@ -84,13 +84,13 @@ const umbrellaEnv: NodeJS.ProcessEnv = {
 };
 await command("go", ["mod", "edit", "-go=" + nativeGoVersion, "-toolchain=none", "-require=" + module + "@" + version, modfile], umbrellaEnv, repo);
 const consumer = executable(resolve(options.binary!) + "-counter");
-await command("go", ["build", "-mod=mod", "-modfile=" + modfile, "-tags", "gpui,gpui_prebuilt,gpui_headless", "-o", consumer, "./examples/counter"], umbrellaEnv, repo);
+await command("go", ["build", "-mod=mod", "-modfile=" + modfile, "-tags", "gpui_prebuilt,gpui_headless", "-o", consumer, "./examples/counter"], umbrellaEnv, repo);
 await command(consumer, ["-smoke"], { ...umbrellaEnv, GOMAXPROCS: "4" });
 
 // The driver fails unless the archive advertises automation. Only Linux can
 // run it on every runner, because GPUI there starts without a display server.
 const driver = executable(resolve(options.binary!) + "-uitest");
-await command("go", ["build", "-mod=mod", "-modfile=" + modfile, "-tags", "gpui,gpui_prebuilt,gpui_e2e", "-o", driver, "./examples/uitest"], umbrellaEnv, repo);
+await command("go", ["build", "-mod=mod", "-modfile=" + modfile, "-tags", "gpui_prebuilt,gpui_e2e", "-o", driver, "./examples/uitest"], umbrellaEnv, repo);
 if (goos === "linux") await command(driver, [], umbrellaEnv, repo);
 await writeFile(join(out, "commands.json"), JSON.stringify(commands, null, 2) + "\n");
 console.log("PASS: native module ZIP downloaded, built without native compilers, initialized/torn down, the host ran headless through the umbrella shim, and the uitest driver linked");

@@ -550,7 +550,16 @@ impl Session {
                 {
                     return Err(invalid("invalid window size"));
                 }
-                backend.command(Some(view), &command)
+                let result = backend.command(Some(view), &command)?;
+                // A backend without real windows takes the requested size at once;
+                // native backends report the size their window actually gets.
+                if w.operation == WindowOperation::Resize as i32 {
+                    let view = view.clone();
+                    if backend.window_state(&view).is_none() {
+                        events.extend(self.window_resized(&view.window, w.size.clone().unwrap()));
+                    }
+                }
+                Ok(result)
             }
             command::Kind::ClipboardWrite(w) => {
                 if w.text.len() > MAX_RESOURCE_BYTES {

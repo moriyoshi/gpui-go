@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	pb "github.com/moriyoshi/gpui-go/gen/gpui/v1"
+	"github.com/moriyoshi/gpui-go/scene"
 )
 
 // OnClick registers a handler without exposing a Go pointer to Rust. IDs are
@@ -85,6 +86,29 @@ func (c *Client) Dispatch(ctx context.Context, event *Event) error {
 	}
 	if event == nil {
 		return errors.New("gpui: nil event")
+	}
+	switch event.Kind.(type) {
+	case *pb.Event_WindowResized:
+		viewport := event.GetWindowResized().GetViewport()
+		return c.dispatchWindowState(ctx, event, func(w *Window) func(context.Context) error {
+			size := WindowSize{viewport.GetWidth(), viewport.GetHeight()}
+			if w.sized && w.size == size {
+				return nil
+			}
+			w.size, w.sized = size, true
+			return w.resized.notify(size)
+		})
+	case *pb.Event_ColorSchemeChanged:
+		scheme := event.GetColorSchemeChanged().GetColorScheme()
+		return c.dispatchWindowState(ctx, event, func(w *Window) func(context.Context) error {
+			if scheme == scene.ColorSchemeUnspecified || w.scheme == scheme {
+				return nil
+			}
+			w.scheme = scheme
+			return w.schemes.notify(scheme)
+		})
+	case *pb.Event_WindowClosed:
+		c.forget(event.GetWindow())
 	}
 	if event.HandlerId == 0 {
 		return nil

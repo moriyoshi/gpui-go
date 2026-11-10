@@ -14,7 +14,7 @@
     "release:module": "node scripts/build-module.ts",
     "release:collect": "node scripts/collect-release.ts",
     "release:smoke": "node scripts/smoke-release.ts",
-    "release:catalog": "node scripts/catalog.ts",
+    "release:select": "node scripts/select-release.ts",
     "release:check-deployment": "node scripts/check-deployment.ts"
   },
   "devDependencies": {

@@ -401,6 +401,96 @@ func (*WindowClosed) Descriptor() ([]byte, []int) {
 	return file_gpui_v1_event_proto_rawDescGZIP(), []int{5}
 }
 
+// The window's drawable area changed, in logical pixels.
+type WindowResized struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Viewport      *Size                  `protobuf:"bytes,1,opt,name=viewport,proto3" json:"viewport,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WindowResized) Reset() {
+	*x = WindowResized{}
+	mi := &file_gpui_v1_event_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WindowResized) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WindowResized) ProtoMessage() {}
+
+func (x *WindowResized) ProtoReflect() protoreflect.Message {
+	mi := &file_gpui_v1_event_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WindowResized.ProtoReflect.Descriptor instead.
+func (*WindowResized) Descriptor() ([]byte, []int) {
+	return file_gpui_v1_event_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *WindowResized) GetViewport() *Size {
+	if x != nil {
+		return x.Viewport
+	}
+	return nil
+}
+
+// The window switched between the light and dark color schemes.
+type ColorSchemeChanged struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ColorScheme   ColorScheme            `protobuf:"varint,1,opt,name=color_scheme,json=colorScheme,proto3,enum=gpui.v1.ColorScheme" json:"color_scheme,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ColorSchemeChanged) Reset() {
+	*x = ColorSchemeChanged{}
+	mi := &file_gpui_v1_event_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ColorSchemeChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ColorSchemeChanged) ProtoMessage() {}
+
+func (x *ColorSchemeChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_gpui_v1_event_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ColorSchemeChanged.ProtoReflect.Descriptor instead.
+func (*ColorSchemeChanged) Descriptor() ([]byte, []int) {
+	return file_gpui_v1_event_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ColorSchemeChanged) GetColorScheme() ColorScheme {
+	if x != nil {
+		return x.ColorScheme
+	}
+	return ColorScheme_COLOR_SCHEME_UNSPECIFIED
+}
+
 type ViewUpdated struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -409,7 +499,7 @@ type ViewUpdated struct {
 
 func (x *ViewUpdated) Reset() {
 	*x = ViewUpdated{}
-	mi := &file_gpui_v1_event_proto_msgTypes[6]
+	mi := &file_gpui_v1_event_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -421,7 +511,7 @@ func (x *ViewUpdated) String() string {
 func (*ViewUpdated) ProtoMessage() {}
 
 func (x *ViewUpdated) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_event_proto_msgTypes[6]
+	mi := &file_gpui_v1_event_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -434,7 +524,7 @@ func (x *ViewUpdated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ViewUpdated.ProtoReflect.Descriptor instead.
 func (*ViewUpdated) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_event_proto_rawDescGZIP(), []int{6}
+	return file_gpui_v1_event_proto_rawDescGZIP(), []int{8}
 }
 
 type TextChanged struct {
@@ -449,7 +539,7 @@ type TextChanged struct {
 
 func (x *TextChanged) Reset() {
 	*x = TextChanged{}
-	mi := &file_gpui_v1_event_proto_msgTypes[7]
+	mi := &file_gpui_v1_event_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -461,7 +551,7 @@ func (x *TextChanged) String() string {
 func (*TextChanged) ProtoMessage() {}
 
 func (x *TextChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_event_proto_msgTypes[7]
+	mi := &file_gpui_v1_event_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +564,7 @@ func (x *TextChanged) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextChanged.ProtoReflect.Descriptor instead.
 func (*TextChanged) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_event_proto_rawDescGZIP(), []int{7}
+	return file_gpui_v1_event_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TextChanged) GetValue() string {
@@ -531,6 +621,8 @@ type Event struct {
 	//	*Event_ModelChanged
 	//	*Event_PathResult
 	//	*Event_DataDrop
+	//	*Event_WindowResized
+	//	*Event_ColorSchemeChanged
 	Kind          isEvent_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -538,7 +630,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_gpui_v1_event_proto_msgTypes[8]
+	mi := &file_gpui_v1_event_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -550,7 +642,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_event_proto_msgTypes[8]
+	mi := &file_gpui_v1_event_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -563,7 +655,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_event_proto_rawDescGZIP(), []int{8}
+	return file_gpui_v1_event_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Event) GetSequence() uint64 {
@@ -759,6 +851,24 @@ func (x *Event) GetDataDrop() *DragData {
 	return nil
 }
 
+func (x *Event) GetWindowResized() *WindowResized {
+	if x != nil {
+		if x, ok := x.Kind.(*Event_WindowResized); ok {
+			return x.WindowResized
+		}
+	}
+	return nil
+}
+
+func (x *Event) GetColorSchemeChanged() *ColorSchemeChanged {
+	if x != nil {
+		if x, ok := x.Kind.(*Event_ColorSchemeChanged); ok {
+			return x.ColorSchemeChanged
+		}
+	}
+	return nil
+}
+
 type isEvent_Kind interface {
 	isEvent_Kind()
 }
@@ -827,6 +937,16 @@ type Event_DataDrop struct {
 	DataDrop *DragData `protobuf:"bytes,25,opt,name=data_drop,json=dataDrop,proto3,oneof"`
 }
 
+type Event_WindowResized struct {
+	// Undelivered resize or color scheme events are replaced by newer ones of
+	// the same kind for the same window, so a consumer sees the latest value.
+	WindowResized *WindowResized `protobuf:"bytes,26,opt,name=window_resized,json=windowResized,proto3,oneof"`
+}
+
+type Event_ColorSchemeChanged struct {
+	ColorSchemeChanged *ColorSchemeChanged `protobuf:"bytes,27,opt,name=color_scheme_changed,json=colorSchemeChanged,proto3,oneof"`
+}
+
 func (*Event_Click) isEvent_Kind() {}
 
 func (*Event_KeyDown) isEvent_Kind() {}
@@ -859,6 +979,10 @@ func (*Event_PathResult) isEvent_Kind() {}
 
 func (*Event_DataDrop) isEvent_Kind() {}
 
+func (*Event_WindowResized) isEvent_Kind() {}
+
+func (*Event_ColorSchemeChanged) isEvent_Kind() {}
+
 type EventBatch struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Events        []*Event               `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
@@ -868,7 +992,7 @@ type EventBatch struct {
 
 func (x *EventBatch) Reset() {
 	*x = EventBatch{}
-	mi := &file_gpui_v1_event_proto_msgTypes[9]
+	mi := &file_gpui_v1_event_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -880,7 +1004,7 @@ func (x *EventBatch) String() string {
 func (*EventBatch) ProtoMessage() {}
 
 func (x *EventBatch) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_event_proto_msgTypes[9]
+	mi := &file_gpui_v1_event_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -893,7 +1017,7 @@ func (x *EventBatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventBatch.ProtoReflect.Descriptor instead.
 func (*EventBatch) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_event_proto_rawDescGZIP(), []int{9}
+	return file_gpui_v1_event_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *EventBatch) GetEvents() []*Event {
@@ -928,13 +1052,17 @@ const file_gpui_v1_event_proto_rawDesc = "" +
 	"\afocused\x18\x01 \x01(\bR\afocused\" \n" +
 	"\bFileDrop\x12\x14\n" +
 	"\x05paths\x18\x01 \x03(\tR\x05paths\"\x0e\n" +
-	"\fWindowClosed\"\r\n" +
+	"\fWindowClosed\":\n" +
+	"\rWindowResized\x12)\n" +
+	"\bviewport\x18\x01 \x01(\v2\r.gpui.v1.SizeR\bviewport\"M\n" +
+	"\x12ColorSchemeChanged\x127\n" +
+	"\fcolor_scheme\x18\x01 \x01(\x0e2\x14.gpui.v1.ColorSchemeR\vcolorScheme\"\r\n" +
 	"\vViewUpdated\"|\n" +
 	"\vTextChanged\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n" +
 	"\x05epoch\x18\x02 \x01(\x04R\x05epoch\x12#\n" +
 	"\redit_revision\x18\x03 \x01(\x04R\feditRevision\x12\x1c\n" +
-	"\tcomposing\x18\x04 \x01(\bR\tcomposing\"\xa1\b\n" +
+	"\tcomposing\x18\x04 \x01(\bR\tcomposing\"\xb3\t\n" +
 	"\x05Event\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12'\n" +
 	"\x06window\x18\x02 \x01(\v2\x0f.gpui.v1.HandleR\x06window\x12#\n" +
@@ -963,7 +1091,9 @@ const file_gpui_v1_event_proto_rawDesc = "" +
 	"\rmodel_changed\x18\x17 \x01(\v2\x13.gpui.v1.ModelStateH\x00R\fmodelChanged\x126\n" +
 	"\vpath_result\x18\x18 \x01(\v2\x13.gpui.v1.PathResultH\x00R\n" +
 	"pathResult\x120\n" +
-	"\tdata_drop\x18\x19 \x01(\v2\x11.gpui.v1.DragDataH\x00R\bdataDropB\x06\n" +
+	"\tdata_drop\x18\x19 \x01(\v2\x11.gpui.v1.DragDataH\x00R\bdataDrop\x12?\n" +
+	"\x0ewindow_resized\x18\x1a \x01(\v2\x16.gpui.v1.WindowResizedH\x00R\rwindowResized\x12O\n" +
+	"\x14color_scheme_changed\x18\x1b \x01(\v2\x1b.gpui.v1.ColorSchemeChangedH\x00R\x12colorSchemeChangedB\x06\n" +
 	"\x04kind\"4\n" +
 	"\n" +
 	"EventBatch\x12&\n" +
@@ -987,60 +1117,68 @@ func file_gpui_v1_event_proto_rawDescGZIP() []byte {
 }
 
 var file_gpui_v1_event_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_gpui_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_gpui_v1_event_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_gpui_v1_event_proto_goTypes = []any{
-	(MouseButton)(0),     // 0: gpui.v1.MouseButton
-	(*Click)(nil),        // 1: gpui.v1.Click
-	(*KeyEvent)(nil),     // 2: gpui.v1.KeyEvent
-	(*PointerEvent)(nil), // 3: gpui.v1.PointerEvent
-	(*FocusChanged)(nil), // 4: gpui.v1.FocusChanged
-	(*FileDrop)(nil),     // 5: gpui.v1.FileDrop
-	(*WindowClosed)(nil), // 6: gpui.v1.WindowClosed
-	(*ViewUpdated)(nil),  // 7: gpui.v1.ViewUpdated
-	(*TextChanged)(nil),  // 8: gpui.v1.TextChanged
-	(*Event)(nil),        // 9: gpui.v1.Event
-	(*EventBatch)(nil),   // 10: gpui.v1.EventBatch
-	(*Point)(nil),        // 11: gpui.v1.Point
-	(*Modifiers)(nil),    // 12: gpui.v1.Modifiers
-	(*Handle)(nil),       // 13: gpui.v1.Handle
-	(*Action)(nil),       // 14: gpui.v1.Action
-	(*ModelState)(nil),   // 15: gpui.v1.ModelState
-	(*PathResult)(nil),   // 16: gpui.v1.PathResult
-	(*DragData)(nil),     // 17: gpui.v1.DragData
+	(MouseButton)(0),           // 0: gpui.v1.MouseButton
+	(*Click)(nil),              // 1: gpui.v1.Click
+	(*KeyEvent)(nil),           // 2: gpui.v1.KeyEvent
+	(*PointerEvent)(nil),       // 3: gpui.v1.PointerEvent
+	(*FocusChanged)(nil),       // 4: gpui.v1.FocusChanged
+	(*FileDrop)(nil),           // 5: gpui.v1.FileDrop
+	(*WindowClosed)(nil),       // 6: gpui.v1.WindowClosed
+	(*WindowResized)(nil),      // 7: gpui.v1.WindowResized
+	(*ColorSchemeChanged)(nil), // 8: gpui.v1.ColorSchemeChanged
+	(*ViewUpdated)(nil),        // 9: gpui.v1.ViewUpdated
+	(*TextChanged)(nil),        // 10: gpui.v1.TextChanged
+	(*Event)(nil),              // 11: gpui.v1.Event
+	(*EventBatch)(nil),         // 12: gpui.v1.EventBatch
+	(*Point)(nil),              // 13: gpui.v1.Point
+	(*Modifiers)(nil),          // 14: gpui.v1.Modifiers
+	(*Size)(nil),               // 15: gpui.v1.Size
+	(ColorScheme)(0),           // 16: gpui.v1.ColorScheme
+	(*Handle)(nil),             // 17: gpui.v1.Handle
+	(*Action)(nil),             // 18: gpui.v1.Action
+	(*ModelState)(nil),         // 19: gpui.v1.ModelState
+	(*PathResult)(nil),         // 20: gpui.v1.PathResult
+	(*DragData)(nil),           // 21: gpui.v1.DragData
 }
 var file_gpui_v1_event_proto_depIdxs = []int32{
-	11, // 0: gpui.v1.Click.position:type_name -> gpui.v1.Point
+	13, // 0: gpui.v1.Click.position:type_name -> gpui.v1.Point
 	0,  // 1: gpui.v1.Click.button:type_name -> gpui.v1.MouseButton
-	12, // 2: gpui.v1.Click.modifiers:type_name -> gpui.v1.Modifiers
-	12, // 3: gpui.v1.KeyEvent.modifiers:type_name -> gpui.v1.Modifiers
-	11, // 4: gpui.v1.PointerEvent.position:type_name -> gpui.v1.Point
+	14, // 2: gpui.v1.Click.modifiers:type_name -> gpui.v1.Modifiers
+	14, // 3: gpui.v1.KeyEvent.modifiers:type_name -> gpui.v1.Modifiers
+	13, // 4: gpui.v1.PointerEvent.position:type_name -> gpui.v1.Point
 	0,  // 5: gpui.v1.PointerEvent.button:type_name -> gpui.v1.MouseButton
-	12, // 6: gpui.v1.PointerEvent.modifiers:type_name -> gpui.v1.Modifiers
-	11, // 7: gpui.v1.PointerEvent.delta:type_name -> gpui.v1.Point
-	13, // 8: gpui.v1.Event.window:type_name -> gpui.v1.Handle
-	13, // 9: gpui.v1.Event.view:type_name -> gpui.v1.Handle
-	1,  // 10: gpui.v1.Event.click:type_name -> gpui.v1.Click
-	2,  // 11: gpui.v1.Event.key_down:type_name -> gpui.v1.KeyEvent
-	14, // 12: gpui.v1.Event.action:type_name -> gpui.v1.Action
-	6,  // 13: gpui.v1.Event.window_closed:type_name -> gpui.v1.WindowClosed
-	7,  // 14: gpui.v1.Event.view_updated:type_name -> gpui.v1.ViewUpdated
-	8,  // 15: gpui.v1.Event.text_changed:type_name -> gpui.v1.TextChanged
-	2,  // 16: gpui.v1.Event.key_up:type_name -> gpui.v1.KeyEvent
-	3,  // 17: gpui.v1.Event.mouse_down:type_name -> gpui.v1.PointerEvent
-	3,  // 18: gpui.v1.Event.mouse_up:type_name -> gpui.v1.PointerEvent
-	3,  // 19: gpui.v1.Event.mouse_move:type_name -> gpui.v1.PointerEvent
-	3,  // 20: gpui.v1.Event.scroll:type_name -> gpui.v1.PointerEvent
-	4,  // 21: gpui.v1.Event.focus_changed:type_name -> gpui.v1.FocusChanged
-	5,  // 22: gpui.v1.Event.file_drop:type_name -> gpui.v1.FileDrop
-	15, // 23: gpui.v1.Event.model_changed:type_name -> gpui.v1.ModelState
-	16, // 24: gpui.v1.Event.path_result:type_name -> gpui.v1.PathResult
-	17, // 25: gpui.v1.Event.data_drop:type_name -> gpui.v1.DragData
-	9,  // 26: gpui.v1.EventBatch.events:type_name -> gpui.v1.Event
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	14, // 6: gpui.v1.PointerEvent.modifiers:type_name -> gpui.v1.Modifiers
+	13, // 7: gpui.v1.PointerEvent.delta:type_name -> gpui.v1.Point
+	15, // 8: gpui.v1.WindowResized.viewport:type_name -> gpui.v1.Size
+	16, // 9: gpui.v1.ColorSchemeChanged.color_scheme:type_name -> gpui.v1.ColorScheme
+	17, // 10: gpui.v1.Event.window:type_name -> gpui.v1.Handle
+	17, // 11: gpui.v1.Event.view:type_name -> gpui.v1.Handle
+	1,  // 12: gpui.v1.Event.click:type_name -> gpui.v1.Click
+	2,  // 13: gpui.v1.Event.key_down:type_name -> gpui.v1.KeyEvent
+	18, // 14: gpui.v1.Event.action:type_name -> gpui.v1.Action
+	6,  // 15: gpui.v1.Event.window_closed:type_name -> gpui.v1.WindowClosed
+	9,  // 16: gpui.v1.Event.view_updated:type_name -> gpui.v1.ViewUpdated
+	10, // 17: gpui.v1.Event.text_changed:type_name -> gpui.v1.TextChanged
+	2,  // 18: gpui.v1.Event.key_up:type_name -> gpui.v1.KeyEvent
+	3,  // 19: gpui.v1.Event.mouse_down:type_name -> gpui.v1.PointerEvent
+	3,  // 20: gpui.v1.Event.mouse_up:type_name -> gpui.v1.PointerEvent
+	3,  // 21: gpui.v1.Event.mouse_move:type_name -> gpui.v1.PointerEvent
+	3,  // 22: gpui.v1.Event.scroll:type_name -> gpui.v1.PointerEvent
+	4,  // 23: gpui.v1.Event.focus_changed:type_name -> gpui.v1.FocusChanged
+	5,  // 24: gpui.v1.Event.file_drop:type_name -> gpui.v1.FileDrop
+	19, // 25: gpui.v1.Event.model_changed:type_name -> gpui.v1.ModelState
+	20, // 26: gpui.v1.Event.path_result:type_name -> gpui.v1.PathResult
+	21, // 27: gpui.v1.Event.data_drop:type_name -> gpui.v1.DragData
+	7,  // 28: gpui.v1.Event.window_resized:type_name -> gpui.v1.WindowResized
+	8,  // 29: gpui.v1.Event.color_scheme_changed:type_name -> gpui.v1.ColorSchemeChanged
+	11, // 30: gpui.v1.EventBatch.events:type_name -> gpui.v1.Event
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_gpui_v1_event_proto_init() }
@@ -1051,7 +1189,7 @@ func file_gpui_v1_event_proto_init() {
 	file_gpui_v1_types_proto_init()
 	file_gpui_v1_action_proto_init()
 	file_gpui_v1_feature_proto_init()
-	file_gpui_v1_event_proto_msgTypes[8].OneofWrappers = []any{
+	file_gpui_v1_event_proto_msgTypes[10].OneofWrappers = []any{
 		(*Event_Click)(nil),
 		(*Event_KeyDown)(nil),
 		(*Event_Action)(nil),
@@ -1068,6 +1206,8 @@ func file_gpui_v1_event_proto_init() {
 		(*Event_ModelChanged)(nil),
 		(*Event_PathResult)(nil),
 		(*Event_DataDrop)(nil),
+		(*Event_WindowResized)(nil),
+		(*Event_ColorSchemeChanged)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1075,7 +1215,7 @@ func file_gpui_v1_event_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gpui_v1_event_proto_rawDesc), len(file_gpui_v1_event_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

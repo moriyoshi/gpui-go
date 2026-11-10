@@ -80,4 +80,4 @@ Font faces stay installed until the application exits, and keep counting toward 
 
 ## Available in other APIs
 
-Image is only available through `scene`. In a [`ui` application](./reactive-nodes), use a separate window built with `scene` or attach a custom snapshot sink.
+In a [`ui` application](./reactive-nodes#image), use `Document.Image`, or `BindImage` to switch resources from signals. In a GoX template, use the [`img` tag](./gox-tags#image-canvas-and-uniform-list).

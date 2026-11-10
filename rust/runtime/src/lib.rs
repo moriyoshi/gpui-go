@@ -30,6 +30,8 @@ pub enum Message {
         change: TextChanged,
     },
     WindowClosed(Handle),
+    WindowResized(Handle, Size),
+    ColorSchemeChanged(Handle, ColorScheme),
     Interaction {
         entity: Handle,
         revision: u64,
@@ -53,6 +55,13 @@ struct Events {
     acknowledged: u64,
     delivered: u64,
     closed: Option<ProtocolError>,
+}
+
+fn is_window_state(event: &Event) -> bool {
+    matches!(
+        event.kind,
+        Some(event::Kind::WindowResized(_) | event::Kind::ColorSchemeChanged(_))
+    )
 }
 
 pub struct Hub {
@@ -105,6 +114,19 @@ impl Hub {
         let mut events = self.events.lock().unwrap();
         if let Some(error) = &events.closed {
             return Err(error.clone());
+        }
+        // Window size and color scheme are state, not history: a newer report
+        // replaces an undelivered one of the same kind for the same window, so
+        // a live resize cannot fill the queue.
+        if is_window_state(&event) {
+            let delivered = events.delivered;
+            let kind = event.kind.as_ref().map(std::mem::discriminant);
+            events.queue.retain(|queued| {
+                queued.sequence <= delivered
+                    || !is_window_state(queued)
+                    || queued.kind.as_ref().map(std::mem::discriminant) != kind
+                    || queued.window != event.window
+            });
         }
         if events.queue.len() == EVENT_CAPACITY {
             let failure = error(
@@ -297,6 +319,14 @@ impl Hub {
                 .into_iter()
                 .collect(),
             Message::WindowClosed(window) => session.window_closed(&window).into_iter().collect(),
+            Message::WindowResized(window, viewport) => session
+                .window_resized(&window, viewport)
+                .into_iter()
+                .collect(),
+            Message::ColorSchemeChanged(window, color_scheme) => session
+                .color_scheme_changed(&window, color_scheme)
+                .into_iter()
+                .collect(),
             Message::Interaction {
                 entity,
                 revision,
@@ -659,5 +689,85 @@ mod tests {
             hub.input(Message::WindowClosed(Handle::default())).unwrap();
         }
         assert!(hub.input(Message::WindowClosed(Handle::default())).is_err());
+    }
+
+    fn on(window: u64, kind: event::Kind) -> Event {
+        Event {
+            window: Some(Handle {
+                id: window,
+                generation: 1,
+            }),
+            kind: Some(kind),
+            ..Default::default()
+        }
+    }
+    fn resized(window: u64, width: f32) -> Event {
+        on(
+            window,
+            event::Kind::WindowResized(WindowResized {
+                viewport: Some(Size {
+                    width,
+                    height: 100.,
+                }),
+            }),
+        )
+    }
+    fn scheme(window: u64, color_scheme: ColorScheme) -> Event {
+        on(
+            window,
+            event::Kind::ColorSchemeChanged(ColorSchemeChanged {
+                color_scheme: color_scheme as i32,
+            }),
+        )
+    }
+    fn summary(events: &[Event]) -> Vec<String> {
+        events
+            .iter()
+            .map(|e| {
+                let window = e.window.as_ref().map_or(0, |w| w.id);
+                match &e.kind {
+                    Some(event::Kind::WindowResized(r)) => {
+                        format!("{window}:{}", r.viewport.as_ref().unwrap().width)
+                    }
+                    Some(event::Kind::ColorSchemeChanged(c)) => {
+                        format!("{window}:scheme{}", c.color_scheme)
+                    }
+                    _ => format!("{window}:other"),
+                }
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn undelivered_window_state_is_replaced_per_kind_and_window() {
+        let hub = Hub::new(42);
+        // A resize storm far beyond the queue capacity keeps one event per window.
+        for width in 0..(EVENT_CAPACITY * 4) {
+            hub.publish(resized(1, width as f32)).unwrap();
+        }
+        hub.publish(scheme(1, ColorScheme::Dark)).unwrap();
+        hub.publish(Event::default()).unwrap();
+        hub.publish(resized(2, 5.)).unwrap();
+        hub.publish(resized(1, 7.)).unwrap();
+        hub.publish(scheme(1, ColorScheme::Light)).unwrap();
+        let Some(response::Body::Events(first)) = hub.next_events(next(0)).await.body else {
+            panic!()
+        };
+        // The latest of each kind for window 1 follows the unrelated event, and
+        // a color scheme change never replaces a resize or the reverse.
+        assert_eq!(
+            summary(&first.events),
+            ["0:other", "2:5", "1:7", "1:scheme1"]
+        );
+        // Delivered but unacknowledged reports are never rewritten, so a
+        // retried pull sees the same batch; newer reports queue behind them.
+        hub.publish(resized(1, 9.)).unwrap();
+        let Some(response::Body::Events(retry)) = hub.next_events(next(0)).await.body else {
+            panic!()
+        };
+        assert_eq!(
+            summary(&retry.events),
+            ["0:other", "2:5", "1:7", "1:scheme1", "1:9"]
+        );
     }
 }

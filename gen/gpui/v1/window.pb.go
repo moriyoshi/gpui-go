@@ -126,11 +126,15 @@ func (x *OpenWindow) GetInitialView() *ViewSnapshot {
 }
 
 // A window owns its root view. Closing it releases both references.
+// viewport is the drawable area in logical pixels, set by backends with the
+// window-size capability; color_scheme is set by those with window-color-scheme.
 type WindowOpened struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Window        *Handle                `protobuf:"bytes,1,opt,name=window,proto3" json:"window,omitempty"`
 	View          *Handle                `protobuf:"bytes,2,opt,name=view,proto3" json:"view,omitempty"`
 	Revision      uint64                 `protobuf:"varint,3,opt,name=revision,proto3" json:"revision,omitempty"`
+	Viewport      *Size                  `protobuf:"bytes,4,opt,name=viewport,proto3" json:"viewport,omitempty"`
+	ColorScheme   ColorScheme            `protobuf:"varint,5,opt,name=color_scheme,json=colorScheme,proto3,enum=gpui.v1.ColorScheme" json:"color_scheme,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -184,6 +188,20 @@ func (x *WindowOpened) GetRevision() uint64 {
 		return x.Revision
 	}
 	return 0
+}
+
+func (x *WindowOpened) GetViewport() *Size {
+	if x != nil {
+		return x.Viewport
+	}
+	return nil
+}
+
+func (x *WindowOpened) GetColorScheme() ColorScheme {
+	if x != nil {
+		return x.ColorScheme
+	}
+	return ColorScheme_COLOR_SCHEME_UNSPECIFIED
 }
 
 type CloseWindow struct {
@@ -241,11 +259,13 @@ const file_gpui_v1_window_proto_rawDesc = "" +
 	"\n" +
 	"OpenWindow\x120\n" +
 	"\aoptions\x18\x01 \x01(\v2\x16.gpui.v1.WindowOptionsR\aoptions\x128\n" +
-	"\finitial_view\x18\x02 \x01(\v2\x15.gpui.v1.ViewSnapshotR\vinitialView\"x\n" +
+	"\finitial_view\x18\x02 \x01(\v2\x15.gpui.v1.ViewSnapshotR\vinitialView\"\xdc\x01\n" +
 	"\fWindowOpened\x12'\n" +
 	"\x06window\x18\x01 \x01(\v2\x0f.gpui.v1.HandleR\x06window\x12#\n" +
 	"\x04view\x18\x02 \x01(\v2\x0f.gpui.v1.HandleR\x04view\x12\x1a\n" +
-	"\brevision\x18\x03 \x01(\x04R\brevision\"6\n" +
+	"\brevision\x18\x03 \x01(\x04R\brevision\x12)\n" +
+	"\bviewport\x18\x04 \x01(\v2\r.gpui.v1.SizeR\bviewport\x127\n" +
+	"\fcolor_scheme\x18\x05 \x01(\x0e2\x14.gpui.v1.ColorSchemeR\vcolorScheme\"6\n" +
 	"\vCloseWindow\x12'\n" +
 	"\x06window\x18\x01 \x01(\v2\x0f.gpui.v1.HandleR\x06windowB1Z/github.com/moriyoshi/gpui-go/gen/gpui/v1;gpuiv1b\x06proto3"
 
@@ -270,6 +290,7 @@ var file_gpui_v1_window_proto_goTypes = []any{
 	(*Size)(nil),          // 4: gpui.v1.Size
 	(*ViewSnapshot)(nil),  // 5: gpui.v1.ViewSnapshot
 	(*Handle)(nil),        // 6: gpui.v1.Handle
+	(ColorScheme)(0),      // 7: gpui.v1.ColorScheme
 }
 var file_gpui_v1_window_proto_depIdxs = []int32{
 	4, // 0: gpui.v1.WindowOptions.size:type_name -> gpui.v1.Size
@@ -277,12 +298,14 @@ var file_gpui_v1_window_proto_depIdxs = []int32{
 	5, // 2: gpui.v1.OpenWindow.initial_view:type_name -> gpui.v1.ViewSnapshot
 	6, // 3: gpui.v1.WindowOpened.window:type_name -> gpui.v1.Handle
 	6, // 4: gpui.v1.WindowOpened.view:type_name -> gpui.v1.Handle
-	6, // 5: gpui.v1.CloseWindow.window:type_name -> gpui.v1.Handle
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	4, // 5: gpui.v1.WindowOpened.viewport:type_name -> gpui.v1.Size
+	7, // 6: gpui.v1.WindowOpened.color_scheme:type_name -> gpui.v1.ColorScheme
+	6, // 7: gpui.v1.CloseWindow.window:type_name -> gpui.v1.Handle
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_gpui_v1_window_proto_init() }

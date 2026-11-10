@@ -13,21 +13,22 @@ import (
 // default build alone could hide startup coupling behind a build constraint.
 func TestPackageArchitecture(t *testing.T) {
 	const module = "github.com/moriyoshi/gpui-go"
-	paths := []string{"reactive", "scene", "client", "ui", "ui/gox", "uitest", "uitest/gpui", "uitest/starlark", "e2e", "examples/e2eapp", "examples/reactiveapp", "examples/counter-gox/app", "examples/uitest"}
+	paths := []string{"reactive", "scene", "client", "tw", "ui", "ui/gox", "uitest", "uitest/gpui", "uitest/starlark", "e2e", "examples/e2eapp", "examples/reactiveapp", "examples/counter-gox/app", "examples/uitest"}
 
 	allowed := map[string][]string{
 		"reactive":                 {"reactive"},
 		"scene":                    {"scene", "gen/gpui/v1"},
 		"client":                   {"client", "scene", "gen/gpui/v1"},
-		"ui":                       {"ui", "reactive", "scene", "client", "gen/gpui/v1"},
-		"ui/gox":                   {"ui/gox", "ui", "reactive", "scene", "client", "gen/gpui/v1"},
+		"tw":                       {"tw", "scene", "gen/gpui/v1"},
+		"ui":                       {"ui", "tw", "reactive", "scene", "client", "gen/gpui/v1"},
+		"ui/gox":                   {"ui/gox", "ui", "tw", "reactive", "scene", "client", "gen/gpui/v1"},
 		"uitest":                   {"uitest", "gen/gpui/v1"},
 		"uitest/gpui":              {"uitest/gpui", "uitest", "client", "scene", "gen/gpui/v1"},
 		"uitest/starlark":          {"uitest/starlark", "uitest", "gen/gpui/v1"},
 		"e2e":                      {"e2e", "uitest/starlark", "uitest", "gen/gpui/v1"},
 		"examples/e2eapp":          {"examples/e2eapp", "client", "scene", "gen/gpui/v1"},
-		"examples/reactiveapp":     {"examples/reactiveapp", "ui/gox", "ui", "reactive", "client", "scene", "gen/gpui/v1"},
-		"examples/counter-gox/app": {"examples/counter-gox/app", "ui/gox", "ui", "reactive", "client", "scene", "gen/gpui/v1"},
+		"examples/reactiveapp":     {"examples/reactiveapp", "ui/gox", "ui", "tw", "reactive", "client", "scene", "gen/gpui/v1"},
+		"examples/counter-gox/app": {"examples/counter-gox/app", "ui/gox", "ui", "tw", "reactive", "client", "scene", "gen/gpui/v1"},
 		"examples/uitest":          {"examples/uitest", "examples/e2eapp", "uitest/gpui", "uitest", "client", "scene", "host", "internal/nativeshim", "gen/gpui/v1"},
 	}
 	args := []string{"list", "-json", "-tags", "gpui,gpui_e2e"}

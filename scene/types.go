@@ -20,6 +20,8 @@ type (
 // Style values retain optional-field presence and generated enum methods.
 type (
 	Style            = pb.Style
+	ConditionalStyle = pb.ConditionalStyle
+	ColorScheme      = pb.ColorScheme
 	Shadow           = pb.Shadow
 	OpacityAnimation = pb.OpacityAnimation
 	FlexDirection    = pb.FlexDirection
@@ -108,6 +110,13 @@ const (
 	DisplayFlex        = pb.Display_DISPLAY_FLEX
 	DisplayGrid        = pb.Display_DISPLAY_GRID
 	DisplayNone        = pb.Display_DISPLAY_NONE
+)
+
+// ColorScheme values use concise application-facing names.
+const (
+	ColorSchemeUnspecified = pb.ColorScheme_COLOR_SCHEME_UNSPECIFIED
+	ColorSchemeLight       = pb.ColorScheme_COLOR_SCHEME_LIGHT
+	ColorSchemeDark        = pb.ColorScheme_COLOR_SCHEME_DARK
 )
 
 // TextAlignment values use concise application-facing names.

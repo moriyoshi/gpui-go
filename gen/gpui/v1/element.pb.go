@@ -21,6 +21,87 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// A partial refinement applied while the element's window matches every set
+// condition, evaluated natively at render time. Widths compare the window's
+// viewport in logical pixels. Refinements apply in order: style refinements
+// after Element.style, hover refinements after Element.hover_style.
+// Requires the conditional-styles capability.
+type ConditionalStyle struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MinWidth      *float32               `protobuf:"fixed32,1,opt,name=min_width,json=minWidth,proto3,oneof" json:"min_width,omitempty"`                            // Inclusive.
+	MaxWidth      *float32               `protobuf:"fixed32,2,opt,name=max_width,json=maxWidth,proto3,oneof" json:"max_width,omitempty"`                            // Exclusive.
+	ColorScheme   ColorScheme            `protobuf:"varint,3,opt,name=color_scheme,json=colorScheme,proto3,enum=gpui.v1.ColorScheme" json:"color_scheme,omitempty"` // Unspecified matches either scheme.
+	Style         *Style                 `protobuf:"bytes,4,opt,name=style,proto3" json:"style,omitempty"`
+	HoverStyle    *Style                 `protobuf:"bytes,5,opt,name=hover_style,json=hoverStyle,proto3" json:"hover_style,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConditionalStyle) Reset() {
+	*x = ConditionalStyle{}
+	mi := &file_gpui_v1_element_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConditionalStyle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConditionalStyle) ProtoMessage() {}
+
+func (x *ConditionalStyle) ProtoReflect() protoreflect.Message {
+	mi := &file_gpui_v1_element_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConditionalStyle.ProtoReflect.Descriptor instead.
+func (*ConditionalStyle) Descriptor() ([]byte, []int) {
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ConditionalStyle) GetMinWidth() float32 {
+	if x != nil && x.MinWidth != nil {
+		return *x.MinWidth
+	}
+	return 0
+}
+
+func (x *ConditionalStyle) GetMaxWidth() float32 {
+	if x != nil && x.MaxWidth != nil {
+		return *x.MaxWidth
+	}
+	return 0
+}
+
+func (x *ConditionalStyle) GetColorScheme() ColorScheme {
+	if x != nil {
+		return x.ColorScheme
+	}
+	return ColorScheme_COLOR_SCHEME_UNSPECIFIED
+}
+
+func (x *ConditionalStyle) GetStyle() *Style {
+	if x != nil {
+		return x.Style
+	}
+	return nil
+}
+
+func (x *ConditionalStyle) GetHoverStyle() *Style {
+	if x != nil {
+		return x.HoverStyle
+	}
+	return nil
+}
+
 type Container struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Children      []*Element             `protobuf:"bytes,1,rep,name=children,proto3" json:"children,omitempty"`
@@ -30,7 +111,7 @@ type Container struct {
 
 func (x *Container) Reset() {
 	*x = Container{}
-	mi := &file_gpui_v1_element_proto_msgTypes[0]
+	mi := &file_gpui_v1_element_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42,7 +123,7 @@ func (x *Container) String() string {
 func (*Container) ProtoMessage() {}
 
 func (x *Container) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_element_proto_msgTypes[0]
+	mi := &file_gpui_v1_element_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -55,7 +136,7 @@ func (x *Container) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Container.ProtoReflect.Descriptor instead.
 func (*Container) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_element_proto_rawDescGZIP(), []int{0}
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Container) GetChildren() []*Element {
@@ -74,7 +155,7 @@ type Text struct {
 
 func (x *Text) Reset() {
 	*x = Text{}
-	mi := &file_gpui_v1_element_proto_msgTypes[1]
+	mi := &file_gpui_v1_element_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -86,7 +167,7 @@ func (x *Text) String() string {
 func (*Text) ProtoMessage() {}
 
 func (x *Text) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_element_proto_msgTypes[1]
+	mi := &file_gpui_v1_element_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -99,7 +180,7 @@ func (x *Text) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Text.ProtoReflect.Descriptor instead.
 func (*Text) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_element_proto_rawDescGZIP(), []int{1}
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Text) GetContent() string {
@@ -118,7 +199,7 @@ type Image struct {
 
 func (x *Image) Reset() {
 	*x = Image{}
-	mi := &file_gpui_v1_element_proto_msgTypes[2]
+	mi := &file_gpui_v1_element_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -130,7 +211,7 @@ func (x *Image) String() string {
 func (*Image) ProtoMessage() {}
 
 func (x *Image) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_element_proto_msgTypes[2]
+	mi := &file_gpui_v1_element_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -143,7 +224,7 @@ func (x *Image) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Image.ProtoReflect.Descriptor instead.
 func (*Image) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_element_proto_rawDescGZIP(), []int{2}
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Image) GetResource() *Handle {
@@ -165,7 +246,7 @@ type Embedded struct {
 
 func (x *Embedded) Reset() {
 	*x = Embedded{}
-	mi := &file_gpui_v1_element_proto_msgTypes[3]
+	mi := &file_gpui_v1_element_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -177,7 +258,7 @@ func (x *Embedded) String() string {
 func (*Embedded) ProtoMessage() {}
 
 func (x *Embedded) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_element_proto_msgTypes[3]
+	mi := &file_gpui_v1_element_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -190,7 +271,7 @@ func (x *Embedded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Embedded.ProtoReflect.Descriptor instead.
 func (*Embedded) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_element_proto_rawDescGZIP(), []int{3}
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Embedded) GetInstance() uint64 {
@@ -210,7 +291,7 @@ type UniformList struct {
 
 func (x *UniformList) Reset() {
 	*x = UniformList{}
-	mi := &file_gpui_v1_element_proto_msgTypes[4]
+	mi := &file_gpui_v1_element_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +303,7 @@ func (x *UniformList) String() string {
 func (*UniformList) ProtoMessage() {}
 
 func (x *UniformList) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_element_proto_msgTypes[4]
+	mi := &file_gpui_v1_element_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,7 +316,7 @@ func (x *UniformList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UniformList.ProtoReflect.Descriptor instead.
 func (*UniformList) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_element_proto_rawDescGZIP(), []int{4}
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UniformList) GetItems() []*Element {
@@ -272,7 +353,7 @@ type TextInput struct {
 
 func (x *TextInput) Reset() {
 	*x = TextInput{}
-	mi := &file_gpui_v1_element_proto_msgTypes[5]
+	mi := &file_gpui_v1_element_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -284,7 +365,7 @@ func (x *TextInput) String() string {
 func (*TextInput) ProtoMessage() {}
 
 func (x *TextInput) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_element_proto_msgTypes[5]
+	mi := &file_gpui_v1_element_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +378,7 @@ func (x *TextInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextInput.ProtoReflect.Descriptor instead.
 func (*TextInput) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_element_proto_rawDescGZIP(), []int{5}
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TextInput) GetValue() string {
@@ -361,7 +442,7 @@ type EventBinding struct {
 
 func (x *EventBinding) Reset() {
 	*x = EventBinding{}
-	mi := &file_gpui_v1_element_proto_msgTypes[6]
+	mi := &file_gpui_v1_element_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -373,7 +454,7 @@ func (x *EventBinding) String() string {
 func (*EventBinding) ProtoMessage() {}
 
 func (x *EventBinding) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_element_proto_msgTypes[6]
+	mi := &file_gpui_v1_element_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -386,7 +467,7 @@ func (x *EventBinding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventBinding.ProtoReflect.Descriptor instead.
 func (*EventBinding) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_element_proto_rawDescGZIP(), []int{6}
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *EventBinding) GetHandlerId() uint64 {
@@ -410,11 +491,12 @@ type Element struct {
 	OnClick            *EventBinding          `protobuf:"bytes,3,opt,name=on_click,json=onClick,proto3" json:"on_click,omitempty"`
 	AccessibilityLabel *string                `protobuf:"bytes,4,opt,name=accessibility_label,json=accessibilityLabel,proto3,oneof" json:"accessibility_label,omitempty"`
 	// A partial refinement over style while hovered, not a second snapshot.
-	HoverStyle    *Style            `protobuf:"bytes,5,opt,name=hover_style,json=hoverStyle,proto3" json:"hover_style,omitempty"`
-	Interaction   *Interaction      `protobuf:"bytes,6,opt,name=interaction,proto3" json:"interaction,omitempty"`
-	Accessibility *Accessibility    `protobuf:"bytes,7,opt,name=accessibility,proto3" json:"accessibility,omitempty"`
-	KeyBindings   []*KeyBinding     `protobuf:"bytes,8,rep,name=key_bindings,json=keyBindings,proto3" json:"key_bindings,omitempty"`
-	Animation     *OpacityAnimation `protobuf:"bytes,9,opt,name=animation,proto3" json:"animation,omitempty"`
+	HoverStyle        *Style              `protobuf:"bytes,5,opt,name=hover_style,json=hoverStyle,proto3" json:"hover_style,omitempty"`
+	Interaction       *Interaction        `protobuf:"bytes,6,opt,name=interaction,proto3" json:"interaction,omitempty"`
+	Accessibility     *Accessibility      `protobuf:"bytes,7,opt,name=accessibility,proto3" json:"accessibility,omitempty"`
+	KeyBindings       []*KeyBinding       `protobuf:"bytes,8,rep,name=key_bindings,json=keyBindings,proto3" json:"key_bindings,omitempty"`
+	Animation         *OpacityAnimation   `protobuf:"bytes,9,opt,name=animation,proto3" json:"animation,omitempty"`
+	ConditionalStyles []*ConditionalStyle `protobuf:"bytes,17,rep,name=conditional_styles,json=conditionalStyles,proto3" json:"conditional_styles,omitempty"`
 	// Types that are valid to be assigned to Kind:
 	//
 	//	*Element_Container
@@ -431,7 +513,7 @@ type Element struct {
 
 func (x *Element) Reset() {
 	*x = Element{}
-	mi := &file_gpui_v1_element_proto_msgTypes[7]
+	mi := &file_gpui_v1_element_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -443,7 +525,7 @@ func (x *Element) String() string {
 func (*Element) ProtoMessage() {}
 
 func (x *Element) ProtoReflect() protoreflect.Message {
-	mi := &file_gpui_v1_element_proto_msgTypes[7]
+	mi := &file_gpui_v1_element_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -456,7 +538,7 @@ func (x *Element) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Element.ProtoReflect.Descriptor instead.
 func (*Element) Descriptor() ([]byte, []int) {
-	return file_gpui_v1_element_proto_rawDescGZIP(), []int{7}
+	return file_gpui_v1_element_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Element) GetId() uint64 {
@@ -518,6 +600,13 @@ func (x *Element) GetKeyBindings() []*KeyBinding {
 func (x *Element) GetAnimation() *OpacityAnimation {
 	if x != nil {
 		return x.Animation
+	}
+	return nil
+}
+
+func (x *Element) GetConditionalStyles() []*ConditionalStyle {
+	if x != nil {
+		return x.ConditionalStyles
 	}
 	return nil
 }
@@ -642,7 +731,18 @@ var File_gpui_v1_element_proto protoreflect.FileDescriptor
 
 const file_gpui_v1_element_proto_rawDesc = "" +
 	"\n" +
-	"\x15gpui/v1/element.proto\x12\agpui.v1\x1a\x13gpui/v1/types.proto\x1a\x13gpui/v1/style.proto\x1a\x15gpui/v1/feature.proto\x1a\x14gpui/v1/action.proto\"9\n" +
+	"\x15gpui/v1/element.proto\x12\agpui.v1\x1a\x13gpui/v1/types.proto\x1a\x13gpui/v1/style.proto\x1a\x15gpui/v1/feature.proto\x1a\x14gpui/v1/action.proto\"\x82\x02\n" +
+	"\x10ConditionalStyle\x12 \n" +
+	"\tmin_width\x18\x01 \x01(\x02H\x00R\bminWidth\x88\x01\x01\x12 \n" +
+	"\tmax_width\x18\x02 \x01(\x02H\x01R\bmaxWidth\x88\x01\x01\x127\n" +
+	"\fcolor_scheme\x18\x03 \x01(\x0e2\x14.gpui.v1.ColorSchemeR\vcolorScheme\x12$\n" +
+	"\x05style\x18\x04 \x01(\v2\x0e.gpui.v1.StyleR\x05style\x12/\n" +
+	"\vhover_style\x18\x05 \x01(\v2\x0e.gpui.v1.StyleR\n" +
+	"hoverStyleB\f\n" +
+	"\n" +
+	"_min_widthB\f\n" +
+	"\n" +
+	"_max_width\"9\n" +
 	"\tContainer\x12,\n" +
 	"\bchildren\x18\x01 \x03(\v2\x10.gpui.v1.ElementR\bchildren\" \n" +
 	"\x04Text\x12\x18\n" +
@@ -666,7 +766,7 @@ const file_gpui_v1_element_proto_rawDesc = "" +
 	"\fEventBinding\x12\x1d\n" +
 	"\n" +
 	"handler_id\x18\x01 \x01(\x04R\thandlerId\x12)\n" +
-	"\x10stop_propagation\x18\x02 \x01(\bR\x0fstopPropagation\"\xaf\x06\n" +
+	"\x10stop_propagation\x18\x02 \x01(\bR\x0fstopPropagation\"\xf9\x06\n" +
 	"\aElement\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12$\n" +
 	"\x05style\x18\x02 \x01(\v2\x0e.gpui.v1.StyleR\x05style\x120\n" +
@@ -677,7 +777,8 @@ const file_gpui_v1_element_proto_rawDesc = "" +
 	"\vinteraction\x18\x06 \x01(\v2\x14.gpui.v1.InteractionR\vinteraction\x12<\n" +
 	"\raccessibility\x18\a \x01(\v2\x16.gpui.v1.AccessibilityR\raccessibility\x126\n" +
 	"\fkey_bindings\x18\b \x03(\v2\x13.gpui.v1.KeyBindingR\vkeyBindings\x127\n" +
-	"\tanimation\x18\t \x01(\v2\x19.gpui.v1.OpacityAnimationR\tanimation\x122\n" +
+	"\tanimation\x18\t \x01(\v2\x19.gpui.v1.OpacityAnimationR\tanimation\x12H\n" +
+	"\x12conditional_styles\x18\x11 \x03(\v2\x19.gpui.v1.ConditionalStyleR\x11conditionalStyles\x122\n" +
 	"\tcontainer\x18\n" +
 	" \x01(\v2\x12.gpui.v1.ContainerH\x00R\tcontainer\x12#\n" +
 	"\x04text\x18\v \x01(\v2\r.gpui.v1.TextH\x00R\x04text\x12&\n" +
@@ -702,48 +803,54 @@ func file_gpui_v1_element_proto_rawDescGZIP() []byte {
 	return file_gpui_v1_element_proto_rawDescData
 }
 
-var file_gpui_v1_element_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_gpui_v1_element_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_gpui_v1_element_proto_goTypes = []any{
-	(*Container)(nil),        // 0: gpui.v1.Container
-	(*Text)(nil),             // 1: gpui.v1.Text
-	(*Image)(nil),            // 2: gpui.v1.Image
-	(*Embedded)(nil),         // 3: gpui.v1.Embedded
-	(*UniformList)(nil),      // 4: gpui.v1.UniformList
-	(*TextInput)(nil),        // 5: gpui.v1.TextInput
-	(*EventBinding)(nil),     // 6: gpui.v1.EventBinding
-	(*Element)(nil),          // 7: gpui.v1.Element
-	(*Handle)(nil),           // 8: gpui.v1.Handle
-	(*Style)(nil),            // 9: gpui.v1.Style
-	(*Interaction)(nil),      // 10: gpui.v1.Interaction
-	(*Accessibility)(nil),    // 11: gpui.v1.Accessibility
-	(*KeyBinding)(nil),       // 12: gpui.v1.KeyBinding
-	(*OpacityAnimation)(nil), // 13: gpui.v1.OpacityAnimation
-	(*Drawing)(nil),          // 14: gpui.v1.Drawing
+	(*ConditionalStyle)(nil), // 0: gpui.v1.ConditionalStyle
+	(*Container)(nil),        // 1: gpui.v1.Container
+	(*Text)(nil),             // 2: gpui.v1.Text
+	(*Image)(nil),            // 3: gpui.v1.Image
+	(*Embedded)(nil),         // 4: gpui.v1.Embedded
+	(*UniformList)(nil),      // 5: gpui.v1.UniformList
+	(*TextInput)(nil),        // 6: gpui.v1.TextInput
+	(*EventBinding)(nil),     // 7: gpui.v1.EventBinding
+	(*Element)(nil),          // 8: gpui.v1.Element
+	(ColorScheme)(0),         // 9: gpui.v1.ColorScheme
+	(*Style)(nil),            // 10: gpui.v1.Style
+	(*Handle)(nil),           // 11: gpui.v1.Handle
+	(*Interaction)(nil),      // 12: gpui.v1.Interaction
+	(*Accessibility)(nil),    // 13: gpui.v1.Accessibility
+	(*KeyBinding)(nil),       // 14: gpui.v1.KeyBinding
+	(*OpacityAnimation)(nil), // 15: gpui.v1.OpacityAnimation
+	(*Drawing)(nil),          // 16: gpui.v1.Drawing
 }
 var file_gpui_v1_element_proto_depIdxs = []int32{
-	7,  // 0: gpui.v1.Container.children:type_name -> gpui.v1.Element
-	8,  // 1: gpui.v1.Image.resource:type_name -> gpui.v1.Handle
-	7,  // 2: gpui.v1.UniformList.items:type_name -> gpui.v1.Element
-	6,  // 3: gpui.v1.TextInput.on_change:type_name -> gpui.v1.EventBinding
-	9,  // 4: gpui.v1.Element.style:type_name -> gpui.v1.Style
-	6,  // 5: gpui.v1.Element.on_click:type_name -> gpui.v1.EventBinding
-	9,  // 6: gpui.v1.Element.hover_style:type_name -> gpui.v1.Style
-	10, // 7: gpui.v1.Element.interaction:type_name -> gpui.v1.Interaction
-	11, // 8: gpui.v1.Element.accessibility:type_name -> gpui.v1.Accessibility
-	12, // 9: gpui.v1.Element.key_bindings:type_name -> gpui.v1.KeyBinding
-	13, // 10: gpui.v1.Element.animation:type_name -> gpui.v1.OpacityAnimation
-	0,  // 11: gpui.v1.Element.container:type_name -> gpui.v1.Container
-	1,  // 12: gpui.v1.Element.text:type_name -> gpui.v1.Text
-	2,  // 13: gpui.v1.Element.image:type_name -> gpui.v1.Image
-	5,  // 14: gpui.v1.Element.text_input:type_name -> gpui.v1.TextInput
-	14, // 15: gpui.v1.Element.drawing:type_name -> gpui.v1.Drawing
-	4,  // 16: gpui.v1.Element.uniform_list:type_name -> gpui.v1.UniformList
-	3,  // 17: gpui.v1.Element.embedded:type_name -> gpui.v1.Embedded
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	9,  // 0: gpui.v1.ConditionalStyle.color_scheme:type_name -> gpui.v1.ColorScheme
+	10, // 1: gpui.v1.ConditionalStyle.style:type_name -> gpui.v1.Style
+	10, // 2: gpui.v1.ConditionalStyle.hover_style:type_name -> gpui.v1.Style
+	8,  // 3: gpui.v1.Container.children:type_name -> gpui.v1.Element
+	11, // 4: gpui.v1.Image.resource:type_name -> gpui.v1.Handle
+	8,  // 5: gpui.v1.UniformList.items:type_name -> gpui.v1.Element
+	7,  // 6: gpui.v1.TextInput.on_change:type_name -> gpui.v1.EventBinding
+	10, // 7: gpui.v1.Element.style:type_name -> gpui.v1.Style
+	7,  // 8: gpui.v1.Element.on_click:type_name -> gpui.v1.EventBinding
+	10, // 9: gpui.v1.Element.hover_style:type_name -> gpui.v1.Style
+	12, // 10: gpui.v1.Element.interaction:type_name -> gpui.v1.Interaction
+	13, // 11: gpui.v1.Element.accessibility:type_name -> gpui.v1.Accessibility
+	14, // 12: gpui.v1.Element.key_bindings:type_name -> gpui.v1.KeyBinding
+	15, // 13: gpui.v1.Element.animation:type_name -> gpui.v1.OpacityAnimation
+	0,  // 14: gpui.v1.Element.conditional_styles:type_name -> gpui.v1.ConditionalStyle
+	1,  // 15: gpui.v1.Element.container:type_name -> gpui.v1.Container
+	2,  // 16: gpui.v1.Element.text:type_name -> gpui.v1.Text
+	3,  // 17: gpui.v1.Element.image:type_name -> gpui.v1.Image
+	6,  // 18: gpui.v1.Element.text_input:type_name -> gpui.v1.TextInput
+	16, // 19: gpui.v1.Element.drawing:type_name -> gpui.v1.Drawing
+	5,  // 20: gpui.v1.Element.uniform_list:type_name -> gpui.v1.UniformList
+	4,  // 21: gpui.v1.Element.embedded:type_name -> gpui.v1.Embedded
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_gpui_v1_element_proto_init() }
@@ -755,7 +862,8 @@ func file_gpui_v1_element_proto_init() {
 	file_gpui_v1_style_proto_init()
 	file_gpui_v1_feature_proto_init()
 	file_gpui_v1_action_proto_init()
-	file_gpui_v1_element_proto_msgTypes[7].OneofWrappers = []any{
+	file_gpui_v1_element_proto_msgTypes[0].OneofWrappers = []any{}
+	file_gpui_v1_element_proto_msgTypes[8].OneofWrappers = []any{
 		(*Element_Container)(nil),
 		(*Element_Text)(nil),
 		(*Element_Image)(nil),
@@ -770,7 +878,7 @@ func file_gpui_v1_element_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gpui_v1_element_proto_rawDesc), len(file_gpui_v1_element_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

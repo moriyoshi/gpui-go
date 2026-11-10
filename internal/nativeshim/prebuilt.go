@@ -1,4 +1,4 @@
-//go:build gpui && gpui_prebuilt
+//go:build gpui_prebuilt
 
 package nativeshim
 
@@ -27,7 +27,7 @@ var backend *Backend
 const platform = runtime.GOOS + "/" + runtime.GOARCH
 
 // Register installs the published module for target. The generated packages
-// under prebuilt/ call it from init, so it runs before main.
+// under prebuilt/ call it from init; host imports them under gpui_prebuilt.
 func Register(target string, b *Backend) {
 	if target != platform {
 		panic("gpui: prebuilt module for " + target + " registered on " + platform)
@@ -38,10 +38,11 @@ func Register(target string, b *Backend) {
 	backend = b
 }
 
-// Ready reports whether a module was registered for this platform.
+// Ready reports whether a module was registered for this platform. Only an
+// unsupported GOOS/GOARCH leaves it unregistered.
 func Ready() error {
 	if backend == nil {
-		return fmt.Errorf("gpui: no prebuilt native module for %s; import _ %q", platform, "github.com/moriyoshi/gpui-go/prebuilt/"+platform)
+		return fmt.Errorf("gpui: no prebuilt native module for %s", platform)
 	}
 	return nil
 }

@@ -75,6 +75,9 @@ fn setup() -> (TestAppContext, WindowHandle<GoView>, Arc<Hub>) {
             focus: HashMap::new(),
             lists: HashMap::new(),
             resources: Rc::new(RefCell::new(Assets::new(AssetBytes::default()))),
+            reported_size: None,
+            reported_scheme: None,
+            _scheme_observer: window.observe_window_appearance(|window, _| window.refresh()),
             #[cfg(feature = "automation")]
             rendered: Default::default(),
         };
@@ -1053,4 +1056,118 @@ fn pending_chord_survives_a_snapshot_commit() {
             .unwrap(),
         3
     );
+}
+
+fn clicked_at(cx: &mut TestAppContext, window: WindowHandle<GoView>, hub: &Hub, x: f32) -> bool {
+    let position = gpui::point(px(x), px(10.0));
+    window
+        .update(cx, |_, window, cx| {
+            for down in [true, false] {
+                let event = if down {
+                    gpui::MouseDownEvent {
+                        position,
+                        modifiers: Default::default(),
+                        button: gpui::MouseButton::Left,
+                        click_count: 1,
+                        first_mouse: false,
+                    }
+                    .to_platform_input()
+                } else {
+                    gpui::MouseUpEvent {
+                        position,
+                        modifiers: Default::default(),
+                        button: gpui::MouseButton::Left,
+                        click_count: 1,
+                    }
+                    .to_platform_input()
+                };
+                window.dispatch_event(event, cx);
+            }
+        })
+        .unwrap();
+    let mut clicked = false;
+    while let Ok(message) = hub.receiver.try_recv() {
+        clicked |= matches!(message, Message::Click { element: 1, .. });
+    }
+    clicked
+}
+
+#[test]
+fn conditional_styles_follow_the_viewport_and_resizes_are_reported() {
+    let (mut cx, window, hub) = setup();
+    window
+        .update(&mut cx, |view, _, cx| {
+            view.view.snapshot.root.as_mut().unwrap().conditional_styles =
+                vec![pb::ConditionalStyle {
+                    max_width: Some(400.0),
+                    style: Some(pb::Style {
+                        width: Some(pb::Length {
+                            value: Some(pb::length::Value::Pixels(50.0)),
+                        }),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }];
+            cx.notify();
+        })
+        .unwrap();
+    draw(&mut cx, window.into());
+    // The default test window is wider than 400px, so the target is 200px wide.
+    assert!(clicked_at(&mut cx, window, &hub, 100.0));
+
+    cx.simulate_window_resize(window.into(), gpui::size(px(300.0), px(240.0)));
+    cx.run_until_parked();
+    draw(&mut cx, window.into());
+    let mut reported = Vec::new();
+    while let Ok(message) = hub.receiver.try_recv() {
+        match message {
+            Message::WindowResized(handle, viewport) => {
+                assert_eq!(handle.id, 1);
+                reported.push(viewport);
+            }
+            Message::ColorSchemeChanged(..) => panic!("a resize reported a color scheme"),
+            _ => {}
+        }
+    }
+    let last = reported.last().expect("a resize reports the new size");
+    assert_eq!(
+        *last,
+        pb::Size {
+            width: 300.0,
+            height: 240.0
+        }
+    );
+    // Narrower than 400px: the refinement shrinks the target to 50px.
+    assert!(!clicked_at(&mut cx, window, &hub, 100.0));
+    assert!(clicked_at(&mut cx, window, &hub, 25.0));
+
+    // An unchanged viewport is not reported again.
+    draw(&mut cx, window.into());
+    assert!(
+        std::iter::from_fn(|| hub.receiver.try_recv().ok()).all(|message| !matches!(
+            message,
+            Message::WindowResized(..) | Message::ColorSchemeChanged(..)
+        ))
+    );
+}
+
+#[test]
+fn conditions_compare_width_ranges_and_color_scheme() {
+    let dark = pb::ColorScheme::Dark as i32;
+    let light = pb::ColorScheme::Light as i32;
+    let range = pb::ConditionalStyle {
+        min_width: Some(640.0),
+        max_width: Some(1024.0),
+        ..Default::default()
+    };
+    assert!(!condition_matches(&range, 639.9, light));
+    assert!(condition_matches(&range, 640.0, light));
+    assert!(condition_matches(&range, 1023.9, dark));
+    assert!(!condition_matches(&range, 1024.0, light));
+    let dark_only = pb::ConditionalStyle {
+        color_scheme: dark,
+        ..Default::default()
+    };
+    assert!(condition_matches(&dark_only, 10.0, dark));
+    assert!(!condition_matches(&dark_only, 10.0, light));
 }

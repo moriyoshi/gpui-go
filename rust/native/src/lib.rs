@@ -31,12 +31,60 @@ struct GoView {
     focus: HashMap<u64, (gpui::FocusHandle, Vec<gpui::Subscription>)>,
     lists: HashMap<u64, gpui::UniformListScrollHandle>,
     resources: ResourceCache,
+    // The size and color scheme last accepted by the hub. A full mailbox
+    // leaves them stale, so the next frame retries.
+    reported_size: Option<pb::Size>,
+    reported_scheme: Option<pb::ColorScheme>,
+    // GPUI re-renders on resize, but only notifies observers when the
+    // window's appearance (its color scheme) changes.
+    _scheme_observer: gpui::Subscription,
     #[cfg(feature = "automation")]
     rendered: automation::RenderedBounds,
 }
 
+/// The window's drawable size and color scheme. GPUI calls the scheme the
+/// window appearance; its vibrant variants fold into light and dark.
+fn window_state(window: &Window) -> core::WindowState {
+    let viewport = window.viewport_size();
+    core::WindowState {
+        viewport: pb::Size {
+            width: viewport.width.into(),
+            height: viewport.height.into(),
+        },
+        color_scheme: match window.appearance() {
+            gpui::WindowAppearance::Dark | gpui::WindowAppearance::VibrantDark => {
+                pb::ColorScheme::Dark
+            }
+            _ => pb::ColorScheme::Light,
+        },
+    }
+}
+
 impl Render for GoView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let current = window_state(window);
+        if self.reported_size.as_ref() != Some(&current.viewport)
+            && self
+                .hub
+                .input(Message::WindowResized(
+                    self.view.window.clone(),
+                    current.viewport.clone(),
+                ))
+                .is_ok()
+        {
+            self.reported_size = Some(current.viewport.clone());
+        }
+        if self.reported_scheme != Some(current.color_scheme)
+            && self
+                .hub
+                .input(Message::ColorSchemeChanged(
+                    self.view.window.clone(),
+                    current.color_scheme,
+                ))
+                .is_ok()
+        {
+            self.reported_scheme = Some(current.color_scheme);
+        }
         self.sync_inputs(window, cx);
         #[cfg(feature = "automation")]
         self.rendered.borrow_mut().clear();
@@ -50,6 +98,8 @@ impl Render for GoView {
                 lists: &self.lists,
                 resources: &self.resources,
                 text_color: gpui::black(),
+                width: current.viewport.width,
+                color_scheme: current.color_scheme as i32,
                 #[cfg(feature = "automation")]
                 rendered: &self.rendered,
                 cx,
@@ -154,10 +204,22 @@ struct RenderEnv<'a> {
     resources: &'a ResourceCache,
     // GPUI's SVG element paints only with its own color; it does not inherit one.
     text_color: gpui::Hsla,
+    // The window's viewport width and color scheme, for conditional styles.
+    width: f32,
+    color_scheme: i32,
     #[cfg(feature = "automation")]
     rendered: &'a automation::RenderedBounds,
     cx: &'a App,
 }
+/// Widths are inclusive at the minimum and exclusive at the maximum, as in
+/// CSS `(width >= min) and (width < max)`.
+fn condition_matches(condition: &pb::ConditionalStyle, width: f32, color_scheme: i32) -> bool {
+    condition.min_width.is_none_or(|min| width >= min)
+        && condition.max_width.is_none_or(|max| width < max)
+        && (condition.color_scheme == pb::ColorScheme::Unspecified as i32
+            || condition.color_scheme == color_scheme)
+}
+
 fn render_element(element: &pb::Element, env: &RenderEnv<'_>) -> gpui::AnyElement {
     let RenderEnv {
         view,
@@ -203,9 +265,24 @@ fn render_element(element: &pb::Element, env: &RenderEnv<'_>) -> gpui::AnyElemen
     if let Some(style) = &element.style {
         apply_style(&mut node, style);
     }
-    if let Some(hover) = &element.hover_style {
+    let matching: Vec<_> = element
+        .conditional_styles
+        .iter()
+        .filter(|c| condition_matches(c, env.width, env.color_scheme))
+        .collect();
+    for style in matching.iter().filter_map(|c| c.style.as_ref()) {
+        apply_style(&mut node, style);
+    }
+    let hovers: Vec<_> = element
+        .hover_style
+        .iter()
+        .chain(matching.iter().filter_map(|c| c.hover_style.as_ref()))
+        .collect();
+    if !hovers.is_empty() {
         node = node.hover(|mut style| {
-            apply_style(&mut style, hover);
+            for hover in hovers {
+                apply_style(&mut style, hover);
+            }
             style
         });
     }
@@ -260,6 +337,7 @@ fn render_element(element: &pb::Element, env: &RenderEnv<'_>) -> gpui::AnyElemen
                 .collect();
             let handles = lists.clone();
             let resources = resources.clone();
+            let (width, color_scheme) = (env.width, env.color_scheme);
             #[cfg(feature = "automation")]
             let rendered = env.rendered.clone();
             node = node.child(
@@ -283,6 +361,8 @@ fn render_element(element: &pb::Element, env: &RenderEnv<'_>) -> gpui::AnyElemen
                                             lists: &handles,
                                             resources: &resources,
                                             text_color,
+                                            width,
+                                            color_scheme,
                                             #[cfg(feature = "automation")]
                                             rendered: &rendered,
                                             cx,
@@ -678,6 +758,8 @@ impl Backend for NativeBackend<'_> {
                         }
                         true
                     });
+                    let scheme_observer =
+                        window.observe_window_appearance(|window, _| window.refresh());
                     cx.new(|cx| {
                         let mut view = GoView {
                             view: initial,
@@ -686,6 +768,9 @@ impl Backend for NativeBackend<'_> {
                             focus: HashMap::new(),
                             lists: HashMap::new(),
                             resources,
+                            reported_size: None,
+                            reported_scheme: None,
+                            _scheme_observer: scheme_observer,
                             #[cfg(feature = "automation")]
                             rendered: Default::default(),
                         };
@@ -725,6 +810,13 @@ impl Backend for NativeBackend<'_> {
             .map_err(|e| e.to_string())?;
         self.windows.refresh_keys(self.cx);
         Ok(())
+    }
+
+    fn window_state(&mut self, view: &View) -> Option<core::WindowState> {
+        let (_, window) = self.windows.views.get(&view.entity.id)?;
+        window
+            .update(self.cx, |_, window, _| window_state(window))
+            .ok()
     }
 
     fn close(&mut self, view: &View) -> Result<(), String> {

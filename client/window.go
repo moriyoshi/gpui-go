@@ -22,15 +22,24 @@ type Window struct {
 	mu           sync.Mutex
 	revision     uint64
 	closed       bool
+	size         WindowSize
+	sized        bool
+	scheme       scene.ColorScheme
+	resized      observers[WindowSize]
+	schemes      observers[scene.ColorScheme]
 }
 
 func (c *Client) OpenWindow(ctx context.Context, options WindowOptions, root *scene.Node) (*Window, error) {
 	if root == nil {
 		return nil, errors.New("gpui: missing root")
 	}
+	snapshot := root.Proto()
+	if err := c.checkSnapshot(snapshot); err != nil {
+		return nil, err
+	}
 	response, err := c.call(ctx, OperationRequest, &pb.Request{Body: &pb.Request_OpenWindow{OpenWindow: &pb.OpenWindow{
 		Options:     &pb.WindowOptions{Title: options.Title, Size: &scene.Size{Width: options.Width, Height: options.Height}},
-		InitialView: &pb.ViewSnapshot{Revision: 1, Root: root.Proto()},
+		InitialView: &pb.ViewSnapshot{Revision: 1, Root: snapshot},
 	}}})
 	if err != nil {
 		return nil, err
@@ -39,7 +48,21 @@ func (c *Client) OpenWindow(ctx context.Context, options WindowOptions, root *sc
 	if opened == nil || !validHandle(opened.Window) || !validHandle(opened.View) || opened.Revision != 1 {
 		return nil, errors.New("gpui: invalid window-opened response")
 	}
-	return &Window{client: c, window: opened.Window, view: opened.View, revision: opened.Revision}, nil
+	w := &Window{client: c, window: opened.Window, view: opened.View, revision: opened.Revision}
+	if viewport := opened.GetViewport(); viewport != nil {
+		w.size, w.sized = WindowSize{viewport.Width, viewport.Height}, true
+	}
+	w.scheme = opened.GetColorScheme()
+	c.windowsMu.Lock()
+	c.windows[opened.Window.Id] = w
+	c.windowsMu.Unlock()
+	return w, nil
+}
+
+func (c *Client) forget(window *scene.Handle) {
+	c.windowsMu.Lock()
+	delete(c.windows, window.GetId())
+	c.windowsMu.Unlock()
 }
 
 func validHandle(handle *scene.Handle) bool {
@@ -60,6 +83,10 @@ func (w *Window) Set(ctx context.Context, root *scene.Node) error {
 	if root == nil {
 		return errors.New("gpui: missing root")
 	}
+	snapshot := root.Proto()
+	if err := w.client.checkSnapshot(snapshot); err != nil {
+		return err
+	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closed {
@@ -67,7 +94,7 @@ func (w *Window) Set(ctx context.Context, root *scene.Node) error {
 	}
 	w.revision++
 	response, err := w.client.call(ctx, OperationRequest, &pb.Request{Body: &pb.Request_CommitView{CommitView: &pb.CommitView{
-		View: w.view, Snapshot: &pb.ViewSnapshot{Revision: w.revision, Root: root.Proto()},
+		View: w.view, Snapshot: &pb.ViewSnapshot{Revision: w.revision, Root: snapshot},
 	}}})
 	if err != nil {
 		return err
@@ -93,6 +120,7 @@ func (w *Window) Close(ctx context.Context) error {
 		return errors.New("gpui: invalid close response")
 	}
 	w.closed = true
+	w.client.forget(w.window)
 	return nil
 }
 

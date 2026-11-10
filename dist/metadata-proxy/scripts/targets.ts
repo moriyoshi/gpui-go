@@ -11,10 +11,13 @@ export interface NativeTarget {
 
 const table = JSON.parse(readFileSync(new URL("../../native-targets.json", import.meta.url), "utf8")) as {
   modulePrefix: string;
+  repository: string;
   targets: NativeTarget[];
 };
 
 export const modulePrefix = table.modulePrefix;
+// The GitHub repository whose Releases hold the module ZIPs and metadata.
+export const repository = table.repository;
 export const nativeTargets: readonly NativeTarget[] = table.targets;
 
 export function nativeTarget(go: string): NativeTarget {

@@ -84,7 +84,7 @@ func main() {
 	functions := append(bindings.Functions, tlsFinalize)
 
 	var backend bytes.Buffer
-	backend.WriteString(header + "//go:build gpui && gpui_prebuilt\n\npackage nativeshim\n\nimport \"unsafe\"\n\nvar _ unsafe.Pointer\n\n")
+	backend.WriteString(header + "//go:build gpui_prebuilt\n\npackage nativeshim\n\nimport \"unsafe\"\n\nvar _ unsafe.Pointer\n\n")
 	backend.WriteString("// Backend holds one published module's generated functions. Only the\n// packages under prebuilt/ construct it.\ntype Backend struct {\n")
 	for _, fn := range functions {
 		params, _, result := signature(fn)
@@ -110,11 +110,11 @@ func main() {
 		module := table.ModulePrefix + "/" + target.Go
 		dir := filepath.Join(*prebuilt, goos, goarch)
 		write(filepath.Join(dir, "doc.go"), []byte(fmt.Sprintf(header+
-			"// Package %s registers the published %s native module. Import it for\n"+
-			"// its side effect and build with -tags gpui,gpui_prebuilt and CGO_ENABLED=0.\n"+
-			"// On other platforms, or without those tags, it is empty.\npackage %s\n", goarch, target.Go, goarch)))
+			"// Package %s registers the published %s native module. host imports it\n"+
+			"// through package prebuilt under -tags gpui_prebuilt. On other\n"+
+			"// platforms, or without those tags, it is empty.\npackage %s\n", goarch, target.Go, goarch)))
 		var register bytes.Buffer
-		fmt.Fprintf(&register, header+"//go:build gpui && gpui_prebuilt && %s && %s\n\npackage %s\n\n", goos, goarch, goarch)
+		fmt.Fprintf(&register, header+"//go:build gpui_prebuilt && %s && %s\n\npackage %s\n\n", goos, goarch, goarch)
 		fmt.Fprintf(&register, "import (\n\t%q\n\n\tnative %q\n)\n\n", umbrella+"/internal/nativeshim", module)
 		fmt.Fprintf(&register, "func init() {\n\tnativeshim.Register(%q, &nativeshim.Backend{\n", target.Go)
 		for _, fn := range functions {
@@ -126,7 +126,7 @@ func main() {
 	}
 
 	var imports bytes.Buffer
-	imports.WriteString(header + "//go:build gpui && gpui_prebuilt\n\npackage prebuilt\n\nimport (\n")
+	imports.WriteString(header + "//go:build gpui_prebuilt\n\npackage prebuilt\n\nimport (\n")
 	for _, path := range strings.Fields(all.String()) {
 		fmt.Fprintf(&imports, "\t_ %q\n", path)
 	}

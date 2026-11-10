@@ -1,4 +1,4 @@
-//go:build gpui && gpui_prebuilt && !windows
+//go:build gpui_prebuilt && !windows
 
 package nativeshim
 

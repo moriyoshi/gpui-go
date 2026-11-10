@@ -13,14 +13,10 @@ Two different things in gpui-go are called headless, and only one of them can ru
 | Focus, hit testing, keymaps | Yes | No |
 | `uitest` locators and actions | Yes | No |
 | Platforms | Linux only | Any platform with a prebuilt module or that builds `rust/runtime` |
-| Go build tags | `gpui,gpui_prebuilt,gpui_e2e` | `gpui,gpui_prebuilt,gpui_headless` |
+| Go build tags | `gpui_prebuilt,gpui_e2e` | `gpui_prebuilt,gpui_headless` |
 | Good for | End-to-end tests on CI servers | Checking that a program starts, talks to the backend and shuts down |
 
-Neither one produces pixels, so neither can catch a visual regression. Both `gpui_prebuilt` builds need the [registration import](/guide/prebuilt-modules) for the target platform.
-
-::: warning Not published yet
-No [prebuilt](/guide/prebuilt-modules) version exists, so the `gpui_prebuilt` commands on this page cannot resolve today. Use [a source build](#build-from-source) for now.
-:::
+Neither one produces pixels, so neither can catch a visual regression.
 
 ## Running uitest without a display
 
@@ -49,9 +45,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      # Install Go, then the packages listed above. The program imports
-      # github.com/moriyoshi/gpui-go/prebuilt/linux/amd64.
-      - run: CGO_ENABLED=0 go build -tags gpui,gpui_prebuilt,gpui_e2e -o uitest-app .
+      # Install Go, then the packages listed above.
+      - run: CGO_ENABLED=0 go build -tags gpui_prebuilt,gpui_e2e -o uitest-app .
       - run: ./uitest-app
 ```
 
@@ -93,7 +88,7 @@ To test on macOS, run in a graphical session. Windows appear on screen during th
 This backend replaces GPUI with a stub. Your program still runs through `host.Run`, the real Sable transport and the protobuf protocol, but opening, updating and closing a window do nothing beyond the protocol exchange. It needs no display.
 
 ```sh
-CGO_ENABLED=0 go run -tags gpui,gpui_prebuilt,gpui_headless .
+CGO_ENABLED=0 go run -tags gpui_prebuilt,gpui_headless .
 ```
 
 Use it to check that your program starts, opens its window, commits views, handles a `ViewUpdated` event and shuts down.
@@ -110,7 +105,7 @@ Keep these limits in mind:
 
 ## Tests with no native code
 
-Ordinary `go test` runs need neither of the above. Without the `gpui` tag, `host.Run` returns `ErrNativeUnavailable`, so keep application logic in functions you can call directly.
+Ordinary `go test` runs need neither of the above. Without the `gpui` or `gpui_prebuilt` tag, `host.Run` returns `ErrNativeUnavailable`, so keep application logic in functions you can call directly.
 
 To test your own helpers that drive pages, `uitest.Target` is an interface. A small fake satisfies it, and `Page`, `Locator` and `Expect` run against the fake. That exercises your test code and `uitest`'s waiting and strictness rules, but says nothing about your interface, because no GPUI is involved.
 

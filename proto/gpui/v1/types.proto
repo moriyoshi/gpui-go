@@ -23,3 +23,6 @@ message Length {
 message Color { float red = 1; float green = 2; float blue = 3; float alpha = 4; }
 message Edges { Length top = 1; Length right = 2; Length bottom = 3; Length left = 4; }
 message Modifiers { bool control = 1; bool alt = 2; bool shift = 3; bool platform = 4; }
+// Whether a window is drawn light or dark, as CSS prefers-color-scheme. The
+// platform's vibrant and high-contrast variants report as their base scheme.
+enum ColorScheme { COLOR_SCHEME_UNSPECIFIED = 0; COLOR_SCHEME_LIGHT = 1; COLOR_SCHEME_DARK = 2; }

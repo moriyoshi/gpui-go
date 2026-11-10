@@ -4,36 +4,40 @@ import pb "github.com/moriyoshi/gpui-go/gen/gpui/v1"
 
 // Events and payloads are shared with existing protobuf callers without conversion.
 type (
-	Event        = pb.Event
-	Click        = pb.Click
-	KeyEvent     = pb.KeyEvent
-	PointerEvent = pb.PointerEvent
-	FocusChanged = pb.FocusChanged
-	FileDrop     = pb.FileDrop
-	WindowClosed = pb.WindowClosed
-	ViewUpdated  = pb.ViewUpdated
-	TextChanged  = pb.TextChanged
-	MouseButton  = pb.MouseButton
+	Event              = pb.Event
+	Click              = pb.Click
+	KeyEvent           = pb.KeyEvent
+	PointerEvent       = pb.PointerEvent
+	FocusChanged       = pb.FocusChanged
+	FileDrop           = pb.FileDrop
+	WindowClosed       = pb.WindowClosed
+	WindowResized      = pb.WindowResized
+	ColorSchemeChanged = pb.ColorSchemeChanged
+	ViewUpdated        = pb.ViewUpdated
+	TextChanged        = pb.TextChanged
+	MouseButton        = pb.MouseButton
 )
 
 // Event kinds expose the wire oneof cases without generated underscore names.
 type (
-	EventClick        = pb.Event_Click
-	EventKeyDown      = pb.Event_KeyDown
-	EventAction       = pb.Event_Action
-	EventWindowClosed = pb.Event_WindowClosed
-	EventViewUpdated  = pb.Event_ViewUpdated
-	EventTextChanged  = pb.Event_TextChanged
-	EventKeyUp        = pb.Event_KeyUp
-	EventMouseDown    = pb.Event_MouseDown
-	EventMouseUp      = pb.Event_MouseUp
-	EventMouseMove    = pb.Event_MouseMove
-	EventScroll       = pb.Event_Scroll
-	EventFocusChanged = pb.Event_FocusChanged
-	EventFileDrop     = pb.Event_FileDrop
-	EventModelChanged = pb.Event_ModelChanged
-	EventPathResult   = pb.Event_PathResult
-	EventDataDrop     = pb.Event_DataDrop
+	EventClick              = pb.Event_Click
+	EventKeyDown            = pb.Event_KeyDown
+	EventAction             = pb.Event_Action
+	EventWindowClosed       = pb.Event_WindowClosed
+	EventViewUpdated        = pb.Event_ViewUpdated
+	EventTextChanged        = pb.Event_TextChanged
+	EventKeyUp              = pb.Event_KeyUp
+	EventMouseDown          = pb.Event_MouseDown
+	EventMouseUp            = pb.Event_MouseUp
+	EventMouseMove          = pb.Event_MouseMove
+	EventScroll             = pb.Event_Scroll
+	EventFocusChanged       = pb.Event_FocusChanged
+	EventFileDrop           = pb.Event_FileDrop
+	EventModelChanged       = pb.Event_ModelChanged
+	EventPathResult         = pb.Event_PathResult
+	EventDataDrop           = pb.Event_DataDrop
+	EventWindowResized      = pb.Event_WindowResized
+	EventColorSchemeChanged = pb.Event_ColorSchemeChanged
 )
 
 // Client service values retain their generated accessors and protobuf identity.

@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "modulePrefix": "gpui-go.dev/__binary",
+  "repository": "moriyoshi/gpui-go",
   "targets": [
     { "go": "darwin/arm64", "rust": "aarch64-apple-darwin", "runner": "macos-15", "library": "a" },
     { "go": "darwin/amd64", "rust": "x86_64-apple-darwin", "runner": "macos-15-intel", "library": "a" },

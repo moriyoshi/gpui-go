@@ -1,4 +1,4 @@
-//go:build gpui && !gpui_headless
+//go:build (gpui || gpui_prebuilt) && !gpui_headless
 
 package host
 

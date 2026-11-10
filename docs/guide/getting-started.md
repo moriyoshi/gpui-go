@@ -2,7 +2,7 @@
 
 ## Run the examples
 
-Install Go 1.26.5, Rust 1.99.1 and `protoc` 35.1. On macOS you also need Apple's command line tools. The first build downloads dependencies and compiles GPUI, so it takes a while.
+Install Go 1.26.10, Rust 1.99.1 and `protoc` 35.1. On macOS you also need Apple's command line tools. The first build downloads dependencies and compiles GPUI, so it takes a while.
 
 ```sh
 git clone https://github.com/moriyoshi/gpui-go

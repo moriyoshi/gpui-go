@@ -31,20 +31,24 @@ root, err := nativegox.Build(ctx, document, document.Scope(), Counter(count))
 
 `Build` executes a `gox.Elem` once, copies values out of pooled jobs, and releases each standard job once. Signal changes update retained bindings without rerunning the component. Use `nativegox.Text(accessor)` for dynamic text; passing the result of `signal.Get()` formats a static value. A `*ui.Node` can be embedded as a child, including `Show` and `For` ranges. Failed builds dispose their partial ownership.
 
-Supported tags are `div`, `span`, `text`, `button` and void `input`; all are native GPUI elements. `span` and `text` are containers for their child text nodes. GoX synthetic containers become transparent fragments. Text stays literal native text, with no HTML escaping/parsing step.
+Supported tags are `div`, `span`, `text`, `button`, void `input`, void `img`, `canvas` and `uniform-list`; all are native GPUI elements. `canvas` takes no children, and each child of `uniform-list` is one virtualized row. `span` and `text` are containers for their child text nodes. GoX synthetic containers become transparent fragments. Text stays literal native text, with no HTML escaping/parsing step.
 
 | Attribute | Accepted value |
 | --- | --- |
 | `testid` | Nonempty string registered with the document |
 | `label` | Accessibility label string |
 | `role` | `scene.AccessibleRole`, such as `scene.RoleButton` |
-| `style` | `*scene.Style` or `func() *scene.Style` |
+| `twClass` | Utility list `string` or `func() string`, compiled by [tw](../../tw/README.md) |
+| `style` | `*scene.Style` or `func() *scene.Style`; refines `twClass` |
 | `onClick` | `ui.Handler` or `func(context.Context, *client.Event) error` |
 | `checked` | `bool` or `func() bool` accessibility state |
 | `value` | `*reactive.Signal[string]`, required for `input` |
 | `placeholder` | Static input string |
 | `disabled` | Input `bool` or `func() bool` |
 | `masked` | Input `bool` or `func() bool`; draws bullets for passwords |
+| `src` | `img` only: `*client.Resource` or `func() *client.Resource`; required |
+| `commands` | `canvas` only: `[]*scene.DrawCommand` or `func() []*scene.DrawCommand` |
+| `rowHeight` | `uniform-list` only: `int`, `float32` or `float64` in [1, 16384]; required |
 
 Buttons receive focus and button semantics; inputs use the existing persistent native input implementation. These names describe typed jobs, not HTML attributes or browser behavior. Unknown tags/attributes, raw HTML/byte/templ jobs and unwrapped function children return errors. Fragments do not accept element attributes.
 

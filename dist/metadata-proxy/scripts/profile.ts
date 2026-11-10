@@ -1,4 +1,4 @@
-// Bao v0.0.2's verified linker profile. Ordinary repository Go builds retain
+// Bao v0.0.3's verified linker profile. Ordinary repository Go builds retain
 // their separate go.mod toolchain pin.
 export const nativeGoVersion = "1.26.10";
 

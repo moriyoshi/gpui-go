@@ -83,4 +83,4 @@ Each `scene.PathStep` has a `Verb` and the points it requires:
 
 ## Available in other APIs
 
-Canvas is only available through `scene`.
+In a [`ui` application](./reactive-nodes#canvas), use `Document.Canvas`, or `BindCanvas` to repaint from signals. In a GoX template, use the [`canvas` tag](./gox-tags#image-canvas-and-uniform-list).
