@@ -54,7 +54,16 @@ func main() {
 
 ## Build it
 
-Until [prebuilt modules](./prebuilt-modules) are published, your program links a Rust archive built from a checkout. From the checkout, build the archive once:
+In your own module, add the dependency and build with the [prebuilt modules](./prebuilt-modules), which need neither Rust nor a C toolchain:
+
+```sh
+go get github.com/moriyoshi/gpui-go@latest
+CGO_ENABLED=0 go build -tags gpui_prebuilt -o hello .
+```
+
+### From a checkout
+
+To link a Rust archive built from source instead, build the archive once from the checkout:
 
 ```sh
 cargo build --locked --release --manifest-path rust/native/Cargo.toml

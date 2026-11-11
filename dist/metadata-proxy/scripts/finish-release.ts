@@ -126,7 +126,7 @@ async function warmMirror(): Promise<void> {
     const response = await fetch(`https://proxy.golang.org/${module}/@v/${version}.info`);
     if (response.ok) continue;
     console.warn(`proxy.golang.org answered ${response.status} for ${module}@${version}: ${(await response.text()).trim()}`);
-    console.warn("The mirror caches failures for a while; Go falls back to direct fetches for these, unless GOPROXY omits direct.");
+    console.warn("The mirror and sum.golang.org cache failures for a while; until then, go get needs GONOSUMDB=gpui-go.dev/__binary for these.");
   }
 }
 

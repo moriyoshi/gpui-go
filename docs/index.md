@@ -26,5 +26,5 @@ features:
 ---
 
 ::: warning Early project
-APIs can still change, there are no tagged releases yet, and native behavior has been verified on macOS on Apple silicon only. See [Status](/guide/introduction#status) before you build on it.
+APIs can still change, and native behavior has been verified on macOS on Apple silicon only. See [Status](/guide/introduction#status) before you build on it.
 :::

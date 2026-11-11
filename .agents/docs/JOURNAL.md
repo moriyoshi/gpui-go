@@ -1180,3 +1180,23 @@ Verification:
 - Not verified: the Worker change and observability, until the next deploy, and the post-publish wait inside a real `make release`.
 
 Open: the mirror's cached darwin/arm64 failure should expire on its own; recheck `https://proxy.golang.org/gpui-go.dev/__binary/darwin/arm64/@v/v0.0.5.info`.
+
+Follow-up the same day: the cached darwin/arm64 failure cleared.
+
+Correction to the entry above: the clean consumer did not work through the fallback. `go get github.com/moriyoshi/gpui-go@v0.0.5` exited 0, but a `CGO_ENABLED=0 go build -tags gpui_prebuilt` then failed with `gpui-go.dev/__binary/darwin/arm64@v0.0.5: missing go.sum entry for go.mod file`. The earlier check read only the last lines of output.
+
+Findings while the failure was cached:
+- `sum.golang.org/lookup/gpui-go.dev/__binary/darwin/arm64@v0.0.5` answered "not found" with the same Worker 502 body. The checksum database fetches through the mirror, so it cached the failure too.
+- `GOPROXY=direct` does not help: the download succeeds, then `verifying module` fails on the sumdb 404.
+- `GONOSUMDB=gpui-go.dev/__binary` with the default `GOPROXY` works: `go get` and the prebuilt build both pass in a clean consumer. The darwin/arm64 hash it recorded, `h1:d4cjIasZkVgGVomwTisM/yALiNLDQrA+ngChpvLUQJU=`, equals the one in v0.0.5's `go.sum`, which `make release` computed from the release ZIP.
+- The failure was cached at 04:18 UTC and still cached at 04:32 UTC.
+
+Resolution: by 05:38 UTC, `proxy.golang.org` served `v0.0.5.info` for darwin/arm64, and `sum.golang.org` returned a record with `h1:d4cjIasZkVgGVomwTisM/yALiNLDQrA+ngChpvLUQJU=` and `/go.mod h1:9OdWNaC+t7FlfTBCAUqAUVe6nQXzKl4fgjWKgXFIf1g=`, both matching the repository's `go.sum`. The user confirmed that `go get` now works. The negative cache therefore lasts between about 15 minutes and 80 minutes.
+
+Docs: `dist/README.md`, the Worker guide and the `make release` warning now say that the checksum database caches the failure as well, that `GOPROXY=direct` does not get around it, and that `GONOSUMDB=gpui-go.dev/__binary` is the temporary workaround.
+
+Still unverified: the Worker retries and observability are committed locally in `bd0fc23` but not pushed, so not deployed; the post-publish wait has not run in a real `make release`.
+
+User docs: `docs/guide/prebuilt-modules.md` gained a Troubleshooting section with the symptoms, the `GONOSUMDB=gpui-go.dev/__binary` workaround and its caveat.
+
+User docs: removed the "no tagged releases yet" warning from `docs/index.md`, and `docs/guide/getting-started.md` now builds with `go get` and `-tags gpui_prebuilt` first, keeping the checkout build as an alternative.
