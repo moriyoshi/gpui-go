@@ -34,23 +34,26 @@ Each target is built on its own runner. On macOS, `release:syso` rebinds several
 
 ## Prepare a candidate
 
-Pushing a version tag runs `Prepare native release` for that commit:
+A release `vX` goes through three steps, and its tag is created last:
 
-```sh
-git tag v0.1.0
-git push origin v0.1.0
-```
+1. Dispatch `Prepare native release` on `main` with `version: vX`, `targets: all` and `create_draft: true`. It builds the native modules of `main`'s head, commit C, and creates draft Release `vX` targeting C. A draft has a tag name but no tag.
+2. Review and sign the draft, as described below. Do not publish it from GitHub.
+3. With C checked out and a clean working tree, run `make release VERSION=vX`.
 
-The tag is the native module version, so it must be canonical: `v0.x.y` or `v1.x.y`, optionally a prerelease such as `v0.1.0-rc.1`. The plan job rejects any other `v*` tag, and a version that already has a release, before building anything. A tag push builds every target with the pinned Bao release and creates a draft Release on the tag. Go module tags and native releases share this tag line, so every gpui-go version produces a native release.
+`make release` downloads the draft's module ZIPs and metadata, checks them against each other and checks that every module was built from C. It then requires the native modules at `vX` in `go.mod`, resolving them through a local file proxy, and runs `go mod tidy`, so `go.sum` holds the hashes of the exact ZIPs being published. Before committing, it builds and runs the `counter` smoke for the host target against the paired `go.sum`. It commits the change as C', pushes C' to `main` and publishes the draft targeting C'. Publishing creates tag `vX` at C', so tag `vX` requires native `vX`, and the tag appears only once its native modules are published. The native modules record C as their source commit; C' differs only in `go.mod` and `go.sum`. `make release-prepare VERSION=vX` does the same up to the commit and leaves the change in the working tree for review. If `make release` fails after pushing, rerun it with C' checked out: it publishes without pairing again.
 
-To rehearse, or to build a subset while a target is failing, dispatch the workflow manually from GitHub Actions instead:
+The version must be canonical: `v0.x.y` or `v1.x.y`, optionally a prerelease such as `v0.1.0-rc.1`. When drafting, the plan job rejects any other version, a version that already has a release or a tag, and a dispatch from another branch, before building anything. Go module tags and native releases share this tag line. A tag created by publishing is a lightweight tag. To mark the release as a prerelease, edit the draft before step 3.
+
+[Check release tag](../.github/workflows/check-release-tag.yml) runs on every pushed `v*` tag and fails unless the tagged `go.mod` requires every native module at the tag's version and that release is published. It flags a tag pushed by hand, as v0.0.2 to v0.0.4 were before this flow.
+
+To rehearse, or to build a subset while a target is failing, dispatch without `create_draft`:
 
 | Input | Meaning |
 | --- | --- |
-| `version` | Canonical native module version, as for a tag |
+| `version` | Canonical native module version |
 | `targets` | `all`, or a comma-separated subset such as `darwin/arm64,linux/amd64` |
 | `bao_revision` | Exact 40-character commit in `moriyoshi/bao`; empty uses the workflow's pinned v0.0.3, `e05f1cfb2d2054457067f3268908992ca9b1df2c` |
-| `create_draft` | Defaults to false, retaining Actions artifacts only; true creates a new draft Release, tagging the dispatched commit if the tag does not exist |
+| `create_draft` | Defaults to false, retaining Actions artifacts only; true creates a new draft Release targeting the dispatched commit, without a tag |
 
 The workflow pins third-party Actions to commit hashes, disables persisted checkout credentials, and gives only the release job permission to write releases. It never replaces an existing release or uses `latest` as a producer pin. Publication scripts check that the running Go version and Bao's verified linker profile are Go 1.26.10 and that Bao reports the selected commit. The shared pin is in `metadata-proxy/scripts/profile.ts`.
 
@@ -96,7 +99,7 @@ Bao's build log and native execution logs are retained in a separate `native-evi
 
 The root `go.mod` requires all six modules, which raises the repository's Go version to the Bao profile's 1.26.10. A consumer gets the native version that its gpui-go version requires, not whatever is latest.
 
-Native modules lag one release behind the Go module. The commit tagged `vX` is built into native `vX`, but its own `go.mod` cannot require modules that do not exist yet, so it still requires the previous native release. After publishing `vX`, update the requirements with `go get gpui-go.dev/__binary/<goos>/<goarch>@vX` for each target, and the next tag pairs with `vX`. A Go version whose protocol or bindings need newer native code than it requires reports missing capabilities instead (for example, conditional styles fail with an unsupported error), so bump the requirements before relying on a new native feature. `release:smoke` overrides the requirement for the module it builds with a `-modfile`, because the new version is not resolvable before publication.
+Tag `vX` requires native `vX`, because `make release` pairs them. Between releases, `main` keeps requiring the last published native release, so a change on `main` whose protocol or bindings need newer native code reports missing capabilities in a prebuilt build until the next release (for example, conditional styles fail with an unsupported error). gpui-go v0.0.1 to v0.0.4 predate this flow: they require native v0.0.1. `release:smoke` overrides the requirement for the module it builds with a `-modfile`, because the new version is not resolvable before publication.
 
 ## Sign and publish
 
@@ -113,7 +116,7 @@ Replace the example module/version/paths with the actual candidate. Keep the env
 
 Before finalizing the draft, review the actual native dependency and embedded-asset license obligations and include the remaining required texts/notices. The current preparation includes known project/GPUI/Bao/bootstrap notices and raw Cargo metadata, not a completed transitive notice bundle or license audit. If module contents change during this review, regenerate the ZIP, SHA-256 and metadata before signing. Draft replacement is a deliberate manual operation; the workflow refuses to overwrite release assets automatically.
 
-Upload the independently signed envelope to the draft and finish artifact review before publishing with GitHub immutable releases enabled. Immutable releases cannot be extended with new signing assets afterward. The publication workflow does not itself finalize a draft.
+Upload the independently signed envelope to the draft and finish artifact review before publishing with GitHub immutable releases enabled. Immutable releases cannot be extended with new signing assets afterward. Publish with `make release` (step 3 above), not from GitHub: publishing from GitHub creates the tag at C, whose `go.mod` still requires the previous native release.
 
 ## Advertise the release
 

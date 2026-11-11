@@ -16,6 +16,8 @@
     "release:smoke": "node scripts/smoke-release.ts",
     "release:select": "node scripts/select-release.ts",
     "release:check-version": "node scripts/check-version.ts",
+    "release:check-tag": "node scripts/check-tag.ts",
+    "release:finish": "node scripts/finish-release.ts",
     "release:check-deployment": "node scripts/check-deployment.ts"
   },
   "devDependencies": {

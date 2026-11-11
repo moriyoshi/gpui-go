@@ -8,6 +8,7 @@ import { packageRelease, type PackageOptions } from "./release.ts";
 import { rewriteDarwinImports } from "./darwin-imports.ts";
 import { checkDeployment, checkRelease } from "./check-deployment.ts";
 import { checkReleaseVersion } from "./check-version.ts";
+import { checkNativeRequirements } from "./check-tag.ts";
 import { foldFunctionAliases, missingSectionStarts, sectionStartFunctions } from "./linux-prelink.ts";
 import { createSite, createWorker } from "../worker.ts";
 import { assertPublishablePrefix, libraryAssetName, moduleName, modulePrefix, nativeTarget, nativeTargets, selectTargets, sysoAssetName } from "./targets.ts";
@@ -215,6 +216,21 @@ test("release tags must be versions the Worker serves for unsuffixed module path
     ["v0.0.0-20261108000000-123456789abc", /canonical/], ["v2.0.0", /\/v2 suffix/]] as const) {
     assert.throws(() => checkReleaseVersion(version), reason, version);
   }
+});
+
+test("a version tag must require every native module at its own version", () => {
+  const goMod = (versions: Record<string, string>): string => JSON.stringify({
+    Module: { Path: "github.com/moriyoshi/gpui-go" },
+    Require: [{ Path: "google.golang.org/protobuf", Version: "v1.36.11" },
+      ...nativeTargets.map((target) => ({ Path: moduleName(target.go), Version: versions[target.go] ?? "v0.0.5" }))],
+  });
+  assert.doesNotThrow(() => checkNativeRequirements(goMod({}), "v0.0.5"));
+  // The previous release's requirements, as on the v0.0.4 tag.
+  assert.throws(() => checkNativeRequirements(goMod({}), "v0.0.6"), /darwin\/amd64 v0.0.5/);
+  assert.throws(() => checkNativeRequirements(goMod({ "linux/arm64": "v0.0.4" }), "v0.0.5"), /linux\/arm64 v0.0.4/);
+  const missing = JSON.parse(goMod({})) as { Require: { Path: string }[] };
+  missing.Require = missing.Require.filter((requirement) => !requirement.Path.endsWith("windows/arm64"));
+  assert.throws(() => checkNativeRequirements(JSON.stringify(missing), "v0.0.5"), /windows\/arm64 \(missing\)/);
 });
 
 // ELF64 with sections: null, .text (code), .rodata, symtab, strtab, shstrtab.

@@ -32,7 +32,7 @@ window.OnColorSchemeChanged(func(ctx context.Context, scheme scene.ColorScheme) 
 
 `Size` and `ColorScheme` return the values reported when the window opened, updated as the event loop receives changes. Callbacks run on the goroutine that calls `DispatchEvents` or `Dispatch`, after the value is updated, and only for an actual change. Call the returned function to remove a callback. Neither kind of change reaches `OnEvent` handlers.
 
-`ok` is false on a backend without the `window-size` or `window-color-scheme` capability, such as the published v0.0.1 prebuilt modules.
+`ok` is false on a backend without the `window-size` or `window-color-scheme` capability, such as the v0.0.1 prebuilt modules.
 
 In a [`ui` application](./reactive-nodes#window-size-and-color-scheme), read `document.WindowSize()` or `document.ColorScheme()` inside a binding instead.
 

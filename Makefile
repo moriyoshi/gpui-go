@@ -234,6 +234,18 @@ fmt: fmt-reactive fmt-counter-gox fmt-docshots-gox
 check-generated: generate
 	git diff --exit-code -- gen/ tw/theme_gen.go tw/LICENSE-tailwindcss examples/reactiveapp/view.x.go examples/counter-gox/app/view.x.go
 
+# Pairs the root module with draft native release $(VERSION), built from HEAD.
+# release-prepare leaves the go.mod/go.sum change uncommitted; release commits
+# it, pushes it to main and publishes the draft there, which creates the tag.
+.PHONY: release-prepare release
+release-prepare:
+	@test -n "$(VERSION)" || { echo "usage: make $@ VERSION=vX.Y.Z" >&2; exit 1; }
+	cd dist/metadata-proxy && npm ci --ignore-scripts --silent && node scripts/finish-release.ts --version $(VERSION)
+
+release:
+	@test -n "$(VERSION)" || { echo "usage: make $@ VERSION=vX.Y.Z" >&2; exit 1; }
+	cd dist/metadata-proxy && npm ci --ignore-scripts --silent && node scripts/finish-release.ts --version $(VERSION) --publish yes
+
 harness-check:
 	PYTHONDONTWRITEBYTECODE=1 python3 .agents/scripts/check_harness.py
 	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s .agents/scripts -p 'test_*.py'

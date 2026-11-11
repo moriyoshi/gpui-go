@@ -46,7 +46,7 @@ panel := document.Div(owner, content).
 
 Variants stack, as in `md:max-xl:dark:hover:bg-slate-700`. As in Tailwind, `max-*` refinements come first, then wider breakpoints override narrower ones, and `dark:` overrides both. Widths are the window's drawable width, the same viewport a CSS media query uses.
 
-To change structure rather than style, read [`document.WindowSize()` or `document.ColorScheme()`](/reference/reactive-nodes#window-size-and-color-scheme) in a binding. Both need a backend with the window state and conditional style capabilities; the published v0.0.1 prebuilt modules have neither, and `OpenWindow` then returns an error rather than ignoring the variants.
+To change structure rather than style, read [`document.WindowSize()` or `document.ColorScheme()`](/reference/reactive-nodes#window-size-and-color-scheme) in a binding. Both need a backend with the window state and conditional style capabilities; the [prebuilt modules](./prebuilt-modules) have them from v0.0.3 on. Without them, `OpenWindow` returns an error rather than ignoring the variants.
 
 ## Utilities and inline styles
 

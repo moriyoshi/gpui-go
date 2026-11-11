@@ -1,12 +1,10 @@
 name: Prepare native release
 
-# Pushing a version tag builds that commit for every target and drafts the
-# release on the tag. The tagged commit's go.mod still requires the previous
-# native release, so a Go module version pairs with the native modules of the
-# release before it. Dispatch rehearses a build, optionally for some targets.
+# Builds the native modules of the dispatched commit and, with create_draft,
+# drafts release vX targeting it without creating the tag. `make release`
+# then commits the go.mod change that requires vX and publishes the draft on
+# that commit, which creates tag vX. Without create_draft it is a rehearsal.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
@@ -33,13 +31,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-release-${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+  group: native-release-${{ inputs.version }}
   cancel-in-progress: false
 
 env:
-  RELEASE_VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
-  RELEASE_TARGETS: ${{ github.event_name == 'push' && 'all' || inputs.targets }}
-  CREATE_DRAFT: ${{ github.event_name == 'push' || inputs.create_draft }}
+  RELEASE_VERSION: ${{ inputs.version }}
+  RELEASE_TARGETS: ${{ inputs.targets }}
+  CREATE_DRAFT: ${{ inputs.create_draft }}
   # Bao v0.0.3, used unless a dispatch names another commit.
   BAO_REVISION: ${{ inputs.bao_revision || 'e05f1cfb2d2054457067f3268908992ca9b1df2c' }}
   GO_VERSION: '1.26.10'
@@ -69,16 +67,28 @@ jobs:
           npm ci --ignore-scripts
           npm run check
           npm test
-          # Fail a stray tag here rather than after the native builds.
+          # Fail a bad version here rather than after the native builds.
           npm run --silent release:check-version -- "$RELEASE_VERSION"
-      - name: Refuse a version that already has a release
+      - name: Refuse a version that already has a release or tag
         if: env.CREATE_DRAFT == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
+          # The pairing commit fast-forwards main, so drafts are built from main.
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "Draft releases are built from main, not $GITHUB_REF" >&2
+            exit 1
+          fi
           if gh release view "$RELEASE_VERSION" --json tagName >/dev/null 2>&1; then
             echo "A release for $RELEASE_VERSION already exists; delete it first to rebuild" >&2
+            exit 1
+          fi
+          # An existing tag would pin the draft to its commit instead of the pairing commit.
+          refs="$(gh api "repos/$GH_REPO/git/matching-refs/tags/$RELEASE_VERSION" --jq '.[].ref')"
+          if grep --fixed-strings --line-regexp --quiet "refs/tags/$RELEASE_VERSION" <<<"$refs"; then
+            echo "Tag $RELEASE_VERSION already exists; publishing the draft must create it" >&2
             exit 1
           fi
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -306,7 +316,7 @@ jobs:
             echo "Release already exists; refusing to replace assets" >&2
             exit 1
           fi
-          # A pushed tag already names SOURCE_SHA; a dispatch creates the tag there.
+          # A draft creates no tag; publishing creates it at the release's target.
           gh release create "$RELEASE_VERSION" candidate/assets/* \
-            --target "$SOURCE_SHA" --draft --verify-tag="${{ github.event_name == 'push' }}" \
+            --target "$SOURCE_SHA" --draft \
             --title "Native modules $RELEASE_VERSION" --notes-file candidate/release-notes.md

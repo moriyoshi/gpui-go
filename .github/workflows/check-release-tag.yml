@@ -1,0 +1,48 @@
+name: Check release tag
+
+# Version tags are created by publishing a native release with `make release`,
+# on a commit whose go.mod requires that release's native modules. This flags a
+# tag pushed by hand that does not pair its Go module with a published release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22.18.0'
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: dist/metadata-proxy/package-lock.json
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Check the tag requires its own native modules
+        working-directory: dist/metadata-proxy
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm run --silent release:check-version -- "$GITHUB_REF_NAME"
+          npm run --silent release:check-tag -- "$GITHUB_REF_NAME"
+      - name: Check the native release is published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" != false ]]; then
+            echo "Release $GITHUB_REF_NAME is missing or still a draft" >&2
+            exit 1
+          fi

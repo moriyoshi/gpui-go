@@ -1108,3 +1108,30 @@ Reproduction: an Ubuntu 24.04 arm64 container with Go 1.26.10, Node 22.18.0, Rus
 
 Fix: `scripts/linux-prelink.ts` names the function symbol at offset 0 of each executable section before stripping (`sectionStartFunctions`), passes it as `--keep-symbol`, and after stripping fails the prelink if a code section still starts without a function symbol (`missingSectionStarts`). The ELF reading is shared with `foldFunctionAliases`. A new fixture test covers both. With the fix, the container ran the whole job on the CI library with Bao v0.0.3 and the release smoke passed (including the Linux native runs); the unfixed prelink on the same library is the negative control. linux/amd64 was not reproduced locally; it fails the same way in CI and the fix is architecture-independent. Container pitfall: Colima's Kubernetes image garbage collection removed the scratch image between runs, and the Go module cache inside outputs is read-only, so clean it with `chmod -R u+w` first.
 
+
+## 2026-11-11: Native requirements bumped to v0.0.4
+
+The user reported that a clean consumer of `github.com/moriyoshi/gpui-go@v0.0.3` downloaded native v0.0.1. Cause: the one-release lag, lengthened by the failed v0.0.2 native build. Tags v0.0.2, v0.0.3 and v0.0.4 all kept the root `go.mod` at native v0.0.1: v0.0.2 never got a native release, v0.0.3 was still a draft when tagged, and v0.0.4 was tagged on the same commit as v0.0.3 (`addec85`) without the bump. Go downloads exactly the required version, so the Worker serving v0.0.3/v0.0.4 did not matter. In a clean module cache, `go get gpui-go.dev/__binary/darwin/arm64@v0.0.4` resolved through the public mirror; `go list -m -versions` there still listed only v0.0.1 and v0.0.3, a stale list in the public mirror, not a resolution failure.
+
+Change: `go get gpui-go.dev/__binary/<goos>/<goarch>@v0.0.4` for all six targets plus `go mod tidy` (only `go.mod`/`go.sum` changed). The prebuilt and window-state guides now say the capabilities need native v0.0.3 or later, and that gpui-go v0.0.1 through v0.0.4 require v0.0.1.
+
+Verification: the default `go test ./...` passes. `CGO_ENABLED=0 go build -tags gpui_prebuilt,gpui_headless ./examples/counter` against v0.0.4 runs its smoke. A scratch check (`.agents-workspace/tmp/capcheck`), built the same way, found `conditional-styles`, `window-size` and `window-color-scheme` on the backend, and opened a window with `md:p-6 dark:bg-slate-900` that reported size 800x600 and the light scheme. Negative control: the same program built with `-modfile` from the previous `go.mod` (native v0.0.1) fails with `missing capability "conditional-styles"`. Only darwin/arm64 was run.
+
+## 2026-11-11: Tag-last native releases
+
+The user found the one-release lag backwards: requirements were bumped after the tag that should carry them. Constraint: the Worker reads assets from `releases/download/vX/`, so the native release must be on tag `vX`, and a commit's `go.sum` cannot hold the hash of a ZIP whose `publication.json` records that commit. Resolution: a GitHub draft release has a tag name but no tag, and publishing creates the tag at the release's target, so the target moves to the pairing commit before publishing.
+
+Flow: `Prepare native release` is now dispatch-only. When drafting, the plan job requires a dispatch from `main` and refuses an existing release or tag, and the draft targets the dispatched commit C without `--verify-tag`. New `scripts/finish-release.ts` (`make release-prepare`/`make release VERSION=vX`):
+- requires a clean tree with HEAD at the draft's target;
+- downloads each target's metadata and module ZIP from the draft, checks them with the Worker's `validateRelease` plus size and SHA-256, and checks that `publication.json` names C;
+- serves them through a local file proxy ahead of the user's GOPROXY, with `GONOSUMDB` for the native prefix, runs `go get` for the six modules plus `go mod tidy` in a temporary module cache, and refuses changes outside `go.mod`/`go.sum`;
+- checks the requirements, then builds and runs the counter smoke for the host target with `-mod=readonly`.
+
+With `--publish yes`, it also commits C', pushes it to `main` (refusing if `origin/main` is not an ancestor of C) and runs `gh release edit vX --target C' --draft=false`. It then checks that the remote tag is C'. A rerun with C' checked out resumes at publishing. New `scripts/check-tag.ts` and workflow `check-release-tag.yml` fail a pushed `v*` tag whose `go.mod` does not require the native modules at its version, or whose release is missing or a draft.
+
+Verification:
+- `npm run check` passes; `npm test` gives 31 pass and 1 existing skip, including a new test for the requirement check. Both workflow files parse as YAML; actionlint is not installed.
+- `release:check-tag` accepts the working tree at v0.0.4. A check on the v0.0.4 tag's own `go.mod` fails, listing v0.0.1.
+- Rehearsal: in a scratch worktree at `addec85`, the source of the published v0.0.4, prepare mode produced `go.mod` and `go.sum` byte-identical to the earlier bump through the public mirror and checksum database. That shows the hashes from the release ZIPs match `sum.golang.org`. It took about 10 seconds, including the counter smoke. Two git settings, passed through `GIT_CONFIG_*`, hid the two untracked scripts for that run.
+- Guards refused a dirty tree, a HEAD other than the draft's target, publishing an already published release, a v2 version and a missing release.
+- Not run: the publish path itself (commit, push, `gh release edit`), the plan job's new checks, and the tag-check workflow on GitHub. It is unverified whether a tag created by publishing triggers `push` workflows; if it does not, the tag check only covers hand-pushed tags, which is its purpose.
