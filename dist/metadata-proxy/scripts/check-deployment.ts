@@ -42,13 +42,27 @@ export async function checkDeployment(origin: string, native: NativeTable, versi
     const latest = await fetcher(new Request(`${proxy}/@latest`));
     const want = JSON.stringify({ Version: version, Time: release.time });
     if (!latest.ok || JSON.stringify(await latest.json()) !== want) throw new Error(`${path}@latest is not ${want}`);
-    const goMod = await (await fetcher(new Request(`${proxy}/@v/${version}.mod`))).text();
-    if (goMod !== release.goMod) throw new Error(`${path}@${version} serves different go.mod bytes`);
+  }
+  await checkVersionRoutes(origin, native, version, releases, fetcher);
+  return releases.size;
+}
+
+// The routes Go fetches for an explicit version, which serve any published
+// release whether or not it is the one the deployment advertises.
+export async function checkVersionRoutes(origin: string, native: NativeTable, version: string,
+  releases: ReadonlyMap<string, PublishedRelease>, fetcher: Fetch): Promise<void> {
+  for (const [go, release] of releases) {
+    const path = `${native.modulePrefix}/${go}`;
+    const proxy = `${origin}/proxy/${path}`;
+    const info = await fetcher(new Request(`${proxy}/@v/${version}.info`));
+    const want = JSON.stringify({ Version: version, Time: release.time });
+    if (!info.ok || JSON.stringify(await info.json()) !== want) throw new Error(`${path}@${version}.info is not ${want} (${info.status})`);
+    const goMod = await fetcher(new Request(`${proxy}/@v/${version}.mod`));
+    if (!goMod.ok || await goMod.text() !== release.goMod) throw new Error(`${path}@${version} serves different go.mod bytes (${goMod.status})`);
     const zip = await fetcher(new Request(`${proxy}/@v/${version}.zip`, { redirect: "manual" }));
     const location = zip.headers.get("location");
-    if (zip.status !== 302 || location !== release.location) throw new Error(`${path}@${version} redirects to ${location}`);
+    if (zip.status !== 302 || location !== release.location) throw new Error(`${path}@${version} redirects to ${location} (${zip.status})`);
   }
-  return releases.size;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

@@ -154,15 +154,36 @@ export function validateRelease(native: NativeTable, go: string, version: string
   return { version, time, goMod, location: assetURL(native.repository, version, release.asset) };
 }
 
-// Release assets redirect to signed storage URLs, which fetch follows.
-export const fetchAsset: AssetLoader = async (url) => {
-  const response = await fetch(url, { redirect: "follow" });
-  if (response.status === 404) return undefined;
-  if (!response.ok) throw new Error(`${url} returned ${response.status}`);
-  const text = await response.text();
-  if (text.length > MAX_METADATA) throw new Error(`${url} is too large`);
-  return text;
-};
+// Release assets redirect to signed storage URLs, which fetch follows. Network
+// errors, rate limiting and server errors are retried, because a 502 from this
+// Worker is cached by the public Go mirror as a failed version.
+export function createAssetLoader(get: (url: string) => Promise<Response> = (url) => fetch(url, { redirect: "follow" }),
+  delays: readonly number[] = [250, 1000, 3000]): AssetLoader {
+  return async (url) => {
+    for (let attempt = 0; ; attempt++) {
+      let failure: string;
+      try {
+        const response = await get(url);
+        if (response.status === 404) return undefined;
+        if (response.ok) {
+          const text = await response.text();
+          if (text.length > MAX_METADATA) throw new Error(`${url} is too large`);
+          return text;
+        }
+        failure = `GitHub returned ${response.status} for ${url}`;
+        if (response.status !== 429 && response.status < 500) throw new Error(failure);
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+        failure = `Fetching ${url} failed: ${error.message}`;
+      }
+      const delay = delays[attempt];
+      if (delay === undefined) throw new Error(failure);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  };
+}
+
+export const fetchAsset: AssetLoader = createAssetLoader();
 
 function html(value: string): string {
   const entities: Readonly<Record<string, string>> = {
@@ -277,7 +298,7 @@ export function createWorker(native: NativeTable, load: AssetLoader = fetchAsset
         release = await published(module.go, version);
       } catch (error) {
         console.error(`${module.path}@${version}:`, error);
-        return failure(request, 502, "Release metadata is unavailable or invalid");
+        return failure(request, 502, `Release metadata is unavailable or invalid: ${error instanceof Error ? error.message : String(error)}`);
       }
       if (!release) return notFound(request);
       switch (match[2]) {

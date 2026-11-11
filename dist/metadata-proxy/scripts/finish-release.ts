@@ -2,9 +2,9 @@
 //
 // The draft vX was built from commit C and has no tag yet. This script requires
 // the native modules at vX from the draft's own ZIPs, commits the go.mod/go.sum
-// change as C' on top of C, pushes it to main and publishes the draft targeting
-// C', which makes GitHub create tag vX there. Without --publish yes it stops
-// after leaving the change in the working tree.
+// change as C' on top of C, signs tag vX on C', pushes both to origin and
+// publishes the draft on that tag. Without --publish yes it stops after leaving
+// the change in the working tree.
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,6 +16,7 @@ import { strFromU8, unzipSync } from "fflate";
 import type { ReleaseMetadata } from "../types.ts";
 import { metadataAssetName, nativeTable, releaseAssetName, validateRelease } from "../worker.ts";
 import { checkReleaseVersion } from "./check-version.ts";
+import { checkRelease, checkVersionRoutes } from "./check-deployment.ts";
 import { checkNativeRequirements } from "./check-tag.ts";
 import { nativeGoEnvironment } from "./profile.ts";
 import { flags } from "./release.ts";
@@ -40,13 +41,10 @@ const release = JSON.parse(await gh("release", "view", version, "--json", "isDra
   isDraft: boolean; targetCommitish: string;
 };
 if (publish && !release.isDraft) throw new Error(`Release ${version} is already published`);
-if (publish && await git("ls-remote", "--tags", "origin", `refs/tags/${version}`)) {
-  throw new Error(`Tag ${version} already exists on origin; publishing must create it`);
-}
 if (await git("status", "--porcelain")) throw new Error("The working tree must be clean");
 const head = await git("rev-parse", "HEAD");
 
-// A rerun after a failed publish finds the pairing commit already on HEAD.
+// A rerun after a failure past the commit finds the pairing commit on HEAD.
 let source = head;
 let resumed = false;
 if (release.targetCommitish !== head) {
@@ -60,12 +58,16 @@ if (release.targetCommitish !== head) {
   resumed = true;
 }
 if (publish) {
-  // A fresh run pushes C' as a fast-forward of main; a resumed one pushed it already.
+  // The push fast-forwards main to C', which a resumed run may have pushed already.
   await git("fetch", "--quiet", "origin", "main");
-  const upToDate = resumed
-    ? await git("rev-parse", "origin/main") === head
-    : await git("merge-base", "--is-ancestor", "origin/main", source).then(() => true, () => false);
-  if (!upToDate) throw new Error("origin/main has moved past the release commit; build a new release from main");
+  const main = await git("rev-parse", "origin/main");
+  if (!(resumed && main === head) && !await isAncestor(main, source)) {
+    throw new Error("origin/main has moved past the release commit; build a new release from main");
+  }
+  const remoteTag = await peeledRemoteTag();
+  if (remoteTag && !(resumed && remoteTag === head)) {
+    throw new Error(`Tag ${version} already exists on origin at ${remoteTag}`);
+  }
 }
 
 if (!resumed) {
@@ -80,14 +82,64 @@ if (!resumed) {
     process.exit(0);
   }
   await git("commit", "--quiet", "-m", `Require native modules ${version}`, "--", "go.mod", "go.sum");
-  await git("push", "--quiet", "origin", "HEAD:main");
 }
 const pairing = await git("rev-parse", "HEAD");
-await gh("release", "edit", version, "--target", pairing, "--draft=false");
-const tag = await git("ls-remote", "--tags", "origin", `refs/tags/${version}`);
-if (!tag.startsWith(pairing)) throw new Error(`Published ${version}, but the tag is ${tag || "missing"} rather than ${pairing}`);
-await git("fetch", "--quiet", "origin", "tag", version);
-console.log(`Published ${version}: tag ${version} is ${pairing}, which requires the native modules built from ${source}`);
+// Sign the tag with the user's git signing configuration (user.signingkey,
+// gpg.format), before anything is pushed.
+const local = await git("rev-parse", "--verify", "--quiet", `refs/tags/${version}^{commit}`).catch(() => "");
+if (!local) await git("tag", "--sign", "--message", version, version, pairing);
+else if (local !== pairing) throw new Error(`Local tag ${version} is at ${local}, not ${pairing}; delete it and rerun`);
+if (await git("cat-file", "-t", `refs/tags/${version}`) !== "tag"
+    || !/^-----BEGIN [A-Z ]*SIGNATURE-----$/m.test(await git("cat-file", "tag", `refs/tags/${version}`))) {
+  throw new Error(`Local tag ${version} is not a signed annotated tag; delete it and rerun`);
+}
+// The tag exists before the release is published; Check release tag waits for that.
+await git("push", "--quiet", "--atomic", "origin", "HEAD:refs/heads/main", `refs/tags/${version}`);
+await gh("release", "edit", version, "--verify-tag", "--draft=false");
+if (await peeledRemoteTag() !== pairing) throw new Error(`Published ${version}, but origin's tag is not at ${pairing}`);
+console.log(`Published ${version}: signed tag ${version} is ${pairing}, which requires the native modules built from ${source}`);
+await waitForWorker();
+await warmMirror();
+
+// The public Go mirror caches a failed fetch, so it is asked only once the
+// Worker serves every module of the version.
+async function waitForWorker(): Promise<void> {
+  const origin = `https://${nativeTable.modulePrefix.split("/")[0]}`;
+  const deadline = Date.now() + 10 * 60_000;
+  for (;;) {
+    try {
+      const releases = await checkRelease(nativeTable, version, (request) => fetch(request));
+      await checkVersionRoutes(origin, nativeTable, version, releases, (request) => fetch(request));
+      console.log(`${origin} serves ${version} for every target`);
+      return;
+    } catch (error) {
+      if (Date.now() > deadline) throw new Error(`${origin} does not serve ${version} yet; check the Worker before announcing it`, { cause: error });
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
+    }
+  }
+}
+
+// Reports, rather than fails on, a mirror answer: the release is already out.
+async function warmMirror(): Promise<void> {
+  const root = (JSON.parse(await output("go", ["mod", "edit", "-json"], nativeGoEnvironment())) as { Module: { Path: string } }).Module.Path;
+  for (const module of [root, ...nativeTargets.map((target) => moduleName(target.go))]) {
+    const response = await fetch(`https://proxy.golang.org/${module}/@v/${version}.info`);
+    if (response.ok) continue;
+    console.warn(`proxy.golang.org answered ${response.status} for ${module}@${version}: ${(await response.text()).trim()}`);
+    console.warn("The mirror caches failures for a while; Go falls back to direct fetches for these, unless GOPROXY omits direct.");
+  }
+}
+
+function isAncestor(ancestor: string, commit: string): Promise<boolean> {
+  return git("merge-base", "--is-ancestor", ancestor, commit).then(() => true, () => false);
+}
+
+// The commit origin's tag names, or "" when origin has no such tag.
+async function peeledRemoteTag(): Promise<string> {
+  const lines = (await git("ls-remote", "--tags", "origin", `refs/tags/${version}`, `refs/tags/${version}^{}`)).split("\n");
+  const peeled = lines.find((line) => line.endsWith("^{}")) ?? lines.find(Boolean) ?? "";
+  return peeled.split("\t")[0] ?? "";
+}
 
 // Requires every native module at version, resolved from the draft's own ZIPs
 // so that go.sum holds the hashes the public checksum database will compute.

@@ -1,8 +1,8 @@
 name: Check release tag
 
-# Version tags are created by publishing a native release with `make release`,
-# on a commit whose go.mod requires that release's native modules. This flags a
-# tag pushed by hand that does not pair its Go module with a published release.
+# `make release` pushes a signed version tag on a commit whose go.mod requires
+# that release's native modules, then publishes the release. This flags a tag
+# that is unsigned or does not pair its Go module with a published release.
 on:
   push:
     tags: ['v*']
@@ -36,13 +36,35 @@ jobs:
           npm ci --ignore-scripts
           npm run --silent release:check-version -- "$GITHUB_REF_NAME"
           npm run --silent release:check-tag -- "$GITHUB_REF_NAME"
+      - name: Check the tag is signed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          ref="$(gh api "repos/$GH_REPO/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.type + " " + .object.sha')"
+          if [[ "${ref%% *}" != tag ]]; then
+            echo "Tag $GITHUB_REF_NAME is lightweight; release tags are signed annotated tags" >&2
+            exit 1
+          fi
+          # GitHub verifies signatures from signing keys registered on the tagger's account.
+          verification="$(gh api "repos/$GH_REPO/git/tags/${ref#* }" --jq '.verification.verified, .verification.reason' | paste -sd ' ' -)"
+          if [[ "$verification" != "true valid" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not have a verified signature: $verification" >&2
+            exit 1
+          fi
       - name: Check the native release is published
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if [[ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" != false ]]; then
-            echo "Release $GITHUB_REF_NAME is missing or still a draft" >&2
-            exit 1
-          fi
+          # `make release` publishes the draft right after pushing the tag.
+          for attempt in $(seq 30); do
+            if [[ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null)" == false ]]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Release $GITHUB_REF_NAME is missing or still a draft after 5 minutes" >&2
+          exit 1

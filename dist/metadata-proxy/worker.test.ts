@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import defaultWorker, { createSite, createWorker, latestVersion, nativeTable, validateRelease } from "./worker.ts";
+import defaultWorker, { createAssetLoader, createSite, createWorker, latestVersion, nativeTable, validateRelease } from "./worker.ts";
 import type { MetadataWorker, NativeTable, ReleaseMetadata, SiteEnv, WorkerEnv } from "./types.ts";
 
 const table: NativeTable = {
@@ -180,8 +180,41 @@ test("a failed metadata fetch is reported and retried", async () => {
     if (attempts++ === 0) throw new Error("GitHub is down");
     return JSON.stringify(metadata("v0.1.0"));
   });
-  assert.equal((await request(flaky, `/proxy/${path}/@v/v0.1.0.mod`)).status, 502);
+  const failed = await request(flaky, `/proxy/${path}/@v/v0.1.0.mod`);
+  assert.equal(failed.status, 502);
+  assert.match(await failed.text(), /unavailable or invalid: GitHub is down/);
   assert.equal((await request(flaky, `/proxy/${path}/@v/v0.1.0.mod`)).status, 200);
+});
+
+test("asset downloads retry transient GitHub failures but not refusals", async () => {
+  const url = `${download}/v0.1.0/native-release-darwin-arm64.json`;
+  const sequence = (...steps: (number | Error)[]) => {
+    const calls: string[] = [];
+    const get = async (target: string) => {
+      calls.push(target);
+      const step = steps.shift() ?? 200;
+      if (step instanceof Error) throw step;
+      return new Response(step === 200 ? "{}" : "error", { status: step });
+    };
+    return { calls, load: createAssetLoader(get, [0, 0, 0]) };
+  };
+  // A rate limit, a server error and a network failure each get another try.
+  const transient = sequence(429, 503, new TypeError("connection reset"));
+  assert.equal(await transient.load(url), "{}");
+  assert.equal(transient.calls.length, 4);
+  const missing = sequence(404);
+  assert.equal(await missing.load(url), undefined);
+  assert.equal(missing.calls.length, 1);
+  const refused = sequence(403);
+  await assert.rejects(refused.load(url), /GitHub returned 403/);
+  assert.equal(refused.calls.length, 1);
+  const down = sequence(502, 502, 502, 502, 200);
+  await assert.rejects(down.load(url), /GitHub returned 502/);
+  assert.equal(down.calls.length, 4);
+  // Anything else thrown, such as a bug, is not retried.
+  const broken = sequence(new RangeError("bug"));
+  await assert.rejects(broken.load(url), /bug/);
+  assert.equal(broken.calls.length, 1);
 });
 
 test("the published v0.0.1 metadata validates against the target table", () => {

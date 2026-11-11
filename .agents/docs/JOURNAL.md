@@ -1135,3 +1135,48 @@ Verification:
 - Rehearsal: in a scratch worktree at `addec85`, the source of the published v0.0.4, prepare mode produced `go.mod` and `go.sum` byte-identical to the earlier bump through the public mirror and checksum database. That shows the hashes from the release ZIPs match `sum.golang.org`. It took about 10 seconds, including the counter smoke. Two git settings, passed through `GIT_CONFIG_*`, hid the two untracked scripts for that run.
 - Guards refused a dirty tree, a HEAD other than the draft's target, publishing an already published release, a v2 version and a missing release.
 - Not run: the publish path itself (commit, push, `gh release edit`), the plan job's new checks, and the tag-check workflow on GitHub. It is unverified whether a tag created by publishing triggers `push` workflows; if it does not, the tag check only covers hand-pushed tags, which is its purpose.
+
+Follow-up the same day: the user noted that a tag created by publishing is unsigned. Existing release tags are SSH-signed annotated tags, and GitHub reports them verified. The repository's own `.git/config` sets `gpg.format ssh` and `user.signingkey`.
+
+Script changes:
+- After the commit, `finish-release.ts` now runs `git tag --sign --message vX vX C'`, which uses that config and fails before any push.
+- It checks the tag is an annotated tag containing a signature block.
+- It pushes `HEAD:refs/heads/main` and the tag with `git push --atomic`, then runs `gh release edit vX --verify-tag --draft=false`.
+- It checks that origin's peeled tag is C'. The peel uses `ls-remote` with both `refs/tags/vX` and `refs/tags/vX^{}`, because one pattern alone omits the peeled line.
+- Resume accepts an existing local tag at C', and a remote tag or `main` that is already at C'.
+
+Workflow change: `check-release-tag.yml` requires an annotated tag whose GitHub verification is `true valid`. It also polls for up to five minutes for the release to be published, since the tag now precedes publication by seconds.
+
+Verification:
+- Type check passes.
+- The GitHub API checks return `true valid` for v0.0.4 and v0.0.1, and a branch ref reports `commit` as a lightweight tag would.
+- In a throwaway local clone given the same SSH signing config, the script's tag command produced type `tag` with an SSH signature block that the script's check matches. Without that config the clone fell back to gpg and failed, which shows signing depends on the repository-local settings.
+- The publish path is still unrun.
+
+## 2026-11-11: v0.0.5 briefly answered 502 after publication
+
+v0.0.5 was the first release through `make release`. Results:
+- Tag `bdf65a4` is signed and requires native v0.0.5, and Check release tag passed.
+- The deploy run, 42958323819, passed its own live check from a GitHub runner.
+- The user's `go get github.com/moriyoshi/gpui-go@v0.0.5` failed with Bad Gateway on `https://gpui-go.dev/proxy/gpui-go.dev/__binary/darwin/arm64/@v/v0.0.5.info`.
+
+Diagnosis:
+- Minutes later, the Worker served all six targets with 200 and a clean consumer `go get` succeeded.
+- `proxy.golang.org` still answered 404 for darwin/arm64 v0.0.5, with a cached "502 Bad Gateway ... Release metadata is unavailable or invalid", which is the Worker's own body. The root module and linux/amd64 came back 200 on a fresh request.
+- The clean consumer worked only through Go's fallback to direct fetches.
+- A draft's asset URL answers 404, which the Worker passes on as a 404. So the 502 came after publication: GitHub answered the Worker's metadata download with a non-404 error, or the fetch threw.
+- The exact status is unknown: Workers observability was off and the local wrangler login had expired, so no log was available.
+
+Changes:
+- `createAssetLoader` (`fetchAsset` is its default) retries network `TypeError`s, 429 and 5xx with delays of 250 ms, 1 s and 3 s, then fails with the status. Other errors and non-404 4xx are not retried. A 502 body now includes the reason.
+- `wrangler.jsonc` enables observability.
+- `check-deployment.ts` exports `checkVersionRoutes` (.info, .mod and the .zip redirect for an explicit version), and `checkDeployment` uses it.
+- After publishing, `finish-release.ts` polls `checkRelease` plus `checkVersionRoutes` against the live domain for up to ten minutes. Only then does it request each module's `.info` from `proxy.golang.org`, warning about any failure the mirror has cached.
+
+Verification:
+- `npm run check` passes and `npm test` gives 32 pass, including a new retry test that covers 429, 503, `TypeError`, 404, 403, persistent 502 and a non-network exception. With no retry delays, a single 503 rejects, which is the negative control.
+- The new route checks pass against live v0.0.5, and `checkVersionRoutes` rejects v0.0.4 against v0.0.5's records.
+- The full `checkDeployment` passes live.
+- Not verified: the Worker change and observability, until the next deploy, and the post-publish wait inside a real `make release`.
+
+Open: the mirror's cached darwin/arm64 failure should expire on its own; recheck `https://proxy.golang.org/gpui-go.dev/__binary/darwin/arm64/@v/v0.0.5.info`.
