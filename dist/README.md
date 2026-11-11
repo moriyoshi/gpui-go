@@ -26,7 +26,7 @@ With `targets: all` a failing target blocks the release job, so select a working
 
 Bao options for each target are in [bao.config.json](bao.config.json). Windows names LLVM-MinGW import libraries and caps three 64-byte read-only data sections at 32 bytes with `max_data_alignment`, because Go's PE reader cannot provide more; whether that code relies on the larger alignment has not been audited.
 
-Linux needs a prelink before Bao. `release:syso` prelinks the library to remove unreachable code, merge per-function sections and fold function aliases, because the archive has 334,676 sections and Go's ELF loader and function table have limits. The config also binds `libxcb`, `libxkbcommon` and `libxkbcommon-x11` dynamically, so consumers need those system libraries at run time.
+Linux needs a prelink before Bao. `release:syso` prelinks the library to remove unreachable code, merge per-function sections and fold function aliases, because the archive has 334,676 sections and Go's ELF loader and function table have limits. The prelink keeps the symbol of the function at the start of each code section, and fails if a code section starts without one: Go's linker does not count the section itself as a function, so code before its first function symbol is a hole in Go's function table (`hole in findfunctab`). The config also binds `libxcb`, `libxkbcommon` and `libxkbcommon-x11` dynamically, so consumers need those system libraries at run time.
 
 Windows uses the GNU ABI because Bao does not support MSVC Rust targets. The `.lib` is a GNU-ABI COFF archive for LLVM-MinGW/MinGW linkers, not for MSVC `link.exe`.
 
@@ -34,14 +34,23 @@ Each target is built on its own runner. On macOS, `release:syso` rebinds several
 
 ## Prepare a candidate
 
-Run `Prepare native release` manually from GitHub Actions, selecting a source revision that contains the desired workflow and release tooling. Provide:
+Pushing a version tag runs `Prepare native release` for that commit:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The tag is the native module version, so it must be canonical: `v0.x.y` or `v1.x.y`, optionally a prerelease such as `v0.1.0-rc.1`. The plan job rejects any other `v*` tag, and a version that already has a release, before building anything. A tag push builds every target with the pinned Bao release and creates a draft Release on the tag. Go module tags and native releases share this tag line, so every gpui-go version produces a native release.
+
+To rehearse, or to build a subset while a target is failing, dispatch the workflow manually from GitHub Actions instead:
 
 | Input | Meaning |
 | --- | --- |
-| `version` | Canonical native module version, initially `v0.x.y` or `v1.x.y`, optionally a prerelease |
+| `version` | Canonical native module version, as for a tag |
 | `targets` | `all`, or a comma-separated subset such as `darwin/arm64,linux/amd64` |
-| `bao_revision` | Exact 40-character commit in `moriyoshi/bao`; defaults to v0.0.3's `e05f1cfb2d2054457067f3268908992ca9b1df2c` |
-| `create_draft` | Defaults to false, retaining Actions artifacts only; true creates a new draft Release |
+| `bao_revision` | Exact 40-character commit in `moriyoshi/bao`; empty uses the workflow's pinned v0.0.3, `e05f1cfb2d2054457067f3268908992ca9b1df2c` |
+| `create_draft` | Defaults to false, retaining Actions artifacts only; true creates a new draft Release, tagging the dispatched commit if the tag does not exist |
 
 The workflow pins third-party Actions to commit hashes, disables persisted checkout credentials, and gives only the release job permission to write releases. It never replaces an existing release or uses `latest` as a producer pin. Publication scripts check that the running Go version and Bao's verified linker profile are Go 1.26.10 and that Bao reports the selected commit. The shared pin is in `metadata-proxy/scripts/profile.ts`.
 
@@ -85,7 +94,9 @@ Bao's build log and native execution logs are retained in a separate `native-evi
 
 `go mod tidy` and `go get` load imports as if every build tag were set, so any consumer that imports `host` downloads all six modules on tidy, including source-build consumers. This is the cost of not asking programs for a platform-specific import. An ordinary `go build` downloads only the current target's module. On a GOOS/GOARCH without a module, a prebuilt build compiles and `host.Run` returns an error.
 
-The root `go.mod` requires all six modules, which raises the repository's Go version to the Bao profile's 1.26.10. A consumer gets the native version that its gpui-go version requires, not whatever is latest. After publishing a release, update the requirements with `go get gpui-go.dev/__binary/<goos>/<goarch>@<version>` for each target. `release:smoke` overrides the requirement for the module it builds with a `-modfile`, because the new version is not resolvable before publication.
+The root `go.mod` requires all six modules, which raises the repository's Go version to the Bao profile's 1.26.10. A consumer gets the native version that its gpui-go version requires, not whatever is latest.
+
+Native modules lag one release behind the Go module. The commit tagged `vX` is built into native `vX`, but its own `go.mod` cannot require modules that do not exist yet, so it still requires the previous native release. After publishing `vX`, update the requirements with `go get gpui-go.dev/__binary/<goos>/<goarch>@vX` for each target, and the next tag pairs with `vX`. A Go version whose protocol or bindings need newer native code than it requires reports missing capabilities instead (for example, conditional styles fail with an unsupported error), so bump the requirements before relying on a new native feature. `release:smoke` overrides the requirement for the module it builds with a `-modfile`, because the new version is not resolvable before publication.
 
 ## Sign and publish
 

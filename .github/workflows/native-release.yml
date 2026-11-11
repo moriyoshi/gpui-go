@@ -1,6 +1,12 @@
 name: Prepare native release
 
+# Pushing a version tag builds that commit for every target and drafts the
+# release on the tag. The tagged commit's go.mod still requires the previous
+# native release, so a Go module version pairs with the native modules of the
+# release before it. Dispatch rehearses a build, optionally for some targets.
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
@@ -13,9 +19,9 @@ on:
         default: all
         type: string
       bao_revision:
-        description: Exact Bao commit (default is released v0.0.3)
-        required: true
-        default: 'e05f1cfb2d2054457067f3268908992ca9b1df2c'
+        description: Exact Bao commit; empty uses the pinned release below
+        required: false
+        default: ''
         type: string
       create_draft:
         description: Upload the checked assets to a new draft GitHub Release
@@ -27,12 +33,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-release-${{ inputs.version }}
+  group: native-release-${{ github.event_name == 'push' && github.ref_name || inputs.version }}
   cancel-in-progress: false
 
 env:
-  RELEASE_VERSION: ${{ inputs.version }}
-  BAO_REVISION: ${{ inputs.bao_revision }}
+  RELEASE_VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+  RELEASE_TARGETS: ${{ github.event_name == 'push' && 'all' || inputs.targets }}
+  CREATE_DRAFT: ${{ github.event_name == 'push' || inputs.create_draft }}
+  # Bao v0.0.3, used unless a dispatch names another commit.
+  BAO_REVISION: ${{ inputs.bao_revision || 'e05f1cfb2d2054457067f3268908992ca9b1df2c' }}
   GO_VERSION: '1.26.10'
   NODE_VERSION: '22.18.0'
   RUST_VERSION: '1.99.1'
@@ -60,6 +69,18 @@ jobs:
           npm ci --ignore-scripts
           npm run check
           npm test
+          # Fail a stray tag here rather than after the native builds.
+          npm run --silent release:check-version -- "$RELEASE_VERSION"
+      - name: Refuse a version that already has a release
+        if: env.CREATE_DRAFT == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$RELEASE_VERSION" --json tagName >/dev/null 2>&1; then
+            echo "A release for $RELEASE_VERSION already exists; delete it first to rebuild" >&2
+            exit 1
+          fi
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -70,8 +91,8 @@ jobs:
         name: Select targets
         working-directory: dist/metadata-proxy
         env:
-          TARGETS: ${{ inputs.targets }}
-          REQUIRE_PUBLISHABLE: ${{ inputs.create_draft }}
+          TARGETS: ${{ env.RELEASE_TARGETS }}
+          REQUIRE_PUBLISHABLE: ${{ env.CREATE_DRAFT }}
         run: |
           set -euo pipefail
           echo "matrix=$(npm run --silent release:targets -- "$TARGETS")" >> "$GITHUB_OUTPUT"
@@ -152,7 +173,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: moriyoshi/bao
-          ref: ${{ inputs.bao_revision }}
+          ref: ${{ env.BAO_REVISION }}
           path: .agents-workspace/tmp/bao-producer
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -245,7 +266,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       SOURCE_SHA: ${{ github.sha }}
-      CREATE_DRAFT: ${{ inputs.create_draft }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -273,12 +293,12 @@ jobs:
       - name: Retain the release candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: native-release-${{ inputs.version }}
+          name: native-release-${{ env.RELEASE_VERSION }}
           path: candidate/
           if-no-files-found: error
           compression-level: 0
       - name: Refuse to replace an existing release and create a draft
-        if: ${{ inputs.create_draft }}
+        if: env.CREATE_DRAFT == 'true'
         run: |
           set -euo pipefail
           gh release list --limit 1000 --json tagName --jq '.[].tagName' > existing-releases.txt
@@ -286,6 +306,7 @@ jobs:
             echo "Release already exists; refusing to replace assets" >&2
             exit 1
           fi
+          # A pushed tag already names SOURCE_SHA; a dispatch creates the tag there.
           gh release create "$RELEASE_VERSION" candidate/assets/* \
-            --target "$SOURCE_SHA" --draft --title "Native modules $RELEASE_VERSION" \
-            --notes-file candidate/release-notes.md
+            --target "$SOURCE_SHA" --draft --verify-tag="${{ github.event_name == 'push' }}" \
+            --title "Native modules $RELEASE_VERSION" --notes-file candidate/release-notes.md

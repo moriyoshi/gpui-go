@@ -7,7 +7,8 @@ import { unzipSync, strFromU8 } from "fflate";
 import { packageRelease, type PackageOptions } from "./release.ts";
 import { rewriteDarwinImports } from "./darwin-imports.ts";
 import { checkDeployment, checkRelease } from "./check-deployment.ts";
-import { foldFunctionAliases } from "./linux-prelink.ts";
+import { checkReleaseVersion } from "./check-version.ts";
+import { foldFunctionAliases, missingSectionStarts, sectionStartFunctions } from "./linux-prelink.ts";
 import { createSite, createWorker } from "../worker.ts";
 import { assertPublishablePrefix, libraryAssetName, moduleName, modulePrefix, nativeTarget, nativeTargets, selectTargets, sysoAssetName } from "./targets.ts";
 
@@ -205,3 +206,60 @@ test("function aliases fold onto one symbol, preferring exports", () => {
   assert.equal(foldFunctionAliases(elf, new Set(["exported"])), 1);
   assert.deepEqual([0, 1, 2].map((index) => elf.readUInt32LE(rela + index * 24 + 12)), [2, 3, 4]);
 });
+
+test("release tags must be versions the Worker serves for unsuffixed module paths", () => {
+  for (const version of ["v0.0.2", "v0.1.0", "v1.0.0", "v1.0.0-rc.1"]) {
+    assert.doesNotThrow(() => checkReleaseVersion(version), version);
+  }
+  for (const [version, reason] of [["v0.1", /canonical/], ["v0.1.0+build", /canonical/], ["release-1", /canonical/],
+    ["v0.0.0-20261108000000-123456789abc", /canonical/], ["v2.0.0", /\/v2 suffix/]] as const) {
+    assert.throws(() => checkReleaseVersion(version), reason, version);
+  }
+});
+
+// ELF64 with sections: null, .text (code), .rodata, symtab, strtab, shstrtab.
+function sectionStartFixture(symbols: readonly [name: string, section: number, value: number, func: boolean][]): Buffer {
+  const shnames = "\0.text\0.rodata\0.symtab\0.strtab\0.shstrtab\0";
+  const names = "\0" + symbols.map(([name]) => name + "\0").join("");
+  const symtab = 64 + 64 * 6, strtab = symtab + 24 * (symbols.length + 1), shstrtab = strtab + names.length;
+  const elf = Buffer.alloc(shstrtab + shnames.length);
+  elf.writeBigUInt64LE(64n, 0x28);
+  elf.writeUInt16LE(64, 0x3a);
+  elf.writeUInt16LE(6, 0x3c);
+  elf.writeUInt16LE(5, 0x3e);
+  const section = (index: number, name: string, type: number, flags: number, at: number, size: number, link = 0): void => {
+    const base = 64 + index * 64;
+    elf.writeUInt32LE(shnames.indexOf("\0" + name + "\0") + 1, base);
+    elf.writeUInt32LE(type, base + 4);
+    elf.writeBigUInt64LE(BigInt(flags), base + 8);
+    elf.writeBigUInt64LE(BigInt(at), base + 0x18);
+    elf.writeBigUInt64LE(BigInt(size), base + 0x20);
+    elf.writeUInt32LE(link, base + 0x28);
+  };
+  section(1, ".text", 1, 0x6, 0, 64);
+  section(2, ".rodata", 1, 0x2, 0, 16);
+  section(3, ".symtab", 2, 0, symtab, 24 * (symbols.length + 1), 4);
+  section(4, ".strtab", 3, 0, strtab, names.length);
+  section(5, ".shstrtab", 3, 0, shstrtab, shnames.length);
+  elf.write(names, strtab, "latin1");
+  elf.write(shnames, shstrtab, "latin1");
+  symbols.forEach(([name, shndx, value, func], i) => {
+    const at = symtab + (i + 1) * 24;
+    elf.writeUInt32LE(names.indexOf("\0" + name + "\0") + 1, at);
+    elf[at + 4] = func ? 0x02 : 0x01;
+    elf.writeUInt16LE(shndx, at + 6);
+    elf.writeBigUInt64LE(BigInt(value), at + 8);
+  });
+  return elf;
+}
+
+test("the function at the start of each code section is kept for Go's findfunc table", () => {
+  const named = sectionStartFixture([["first", 1, 0, true], ["second", 1, 32, true], ["table", 2, 0, false]]);
+  assert.deepEqual(sectionStartFunctions(named), ["first"]);
+  assert.deepEqual(missingSectionStarts(named), []);
+  // As after --strip-unneeded dropped the first function: code, not data, is reported.
+  const stripped = sectionStartFixture([["second", 1, 32, true], ["table", 2, 0, false]]);
+  assert.deepEqual(sectionStartFunctions(stripped), []);
+  assert.deepEqual(missingSectionStarts(stripped), [".text"]);
+});
+
